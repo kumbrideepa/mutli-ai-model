@@ -14,10 +14,10 @@ serve(async (req) => {
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
     const langInstruction = language === "hi" 
-      ? "Always respond in Hindi (हिन्दी) using Devanagari script."
+      ? "The user has selected Hindi. You MUST respond entirely in Hindi (हिन्दी) using Devanagari script. Do not use English unless quoting technical terms."
       : language === "kn"
-      ? "Always respond in Kannada (ಕನ್ನಡ) using Kannada script."
-      : "Respond in English.";
+      ? "The user has selected Kannada. You MUST respond entirely in Kannada (ಕನ್ನಡ) using Kannada script. Do not use English unless quoting technical terms."
+      : "The user has selected English. Respond in English.";
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -26,11 +26,21 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-3-flash-preview",
         messages: [
           { 
             role: "system", 
-            content: `You are AI Studio, a premium multilingual AI assistant with vision capabilities. ${langInstruction} You are helpful, creative, and knowledgeable. When a user sends an image, analyze it thoroughly — describe what you see, identify objects, text, landmarks, food, people, etc. Answer any questions the user has about the image. When asked about Indian recipes, provide authentic recipes with ingredients and step-by-step instructions. Keep responses well-formatted with markdown.` 
+            content: `You are AI Studio, a brilliant multilingual AI assistant with vision capabilities. ${langInstruction}
+
+You are extraordinarily knowledgeable, helpful, creative, and precise. You can answer questions on any topic — science, math, history, coding, philosophy, health, finance, culture, and more.
+
+VISION: When a user sends an image, analyze it thoroughly. Describe what you see in detail — identify objects, text, landmarks, food, people, emotions, colors, layout, and context. Answer any follow-up questions about the image.
+
+MEMORY: The full conversation history is provided. Reference previous messages naturally to maintain context and continuity.
+
+RECIPES: When asked about Indian recipes, provide authentic recipes with precise ingredients and step-by-step instructions.
+
+FORMAT: Use markdown for well-structured responses — headings, bullet points, code blocks, bold, etc.` 
           },
           ...messages,
         ],

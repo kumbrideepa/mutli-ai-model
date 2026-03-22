@@ -1,17 +1,15 @@
-import { useState, useRef, useEffect } from "react";
-import { Send, Loader2, Bot, User, Paperclip, X } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Send, Loader2, Bot, User, Paperclip, X, Mic, MicOff } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
 type MessageContent = string | Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }>;
 type Msg = { role: "user" | "assistant"; content: MessageContent };
 
-// Extract display text from a message
 const getDisplayText = (content: MessageContent): string => {
   if (typeof content === "string") return content;
   return content.filter((p) => p.type === "text").map((p) => (p as any).text).join("");
 };
 
-// Extract images from a message
 const getImages = (content: MessageContent): string[] => {
   if (typeof content === "string") return [];
   return content.filter((p) => p.type === "image_url").map((p) => (p as any).image_url.url);
@@ -27,8 +25,10 @@ export function AIChat({ language, systemContext }: AIChatProps) {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isListening, setIsListening] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -40,7 +40,7 @@ export function AIChat({ language, systemContext }: AIChatProps) {
     kn: "ನಿಮ್ಮ ಸಂದೇಶವನ್ನು ಟೈಪ್ ಮಾಡಿ...",
   };
 
-  const compressImage = (file: File, maxWidth = 800, quality = 0.7): Promise<string> => {
+  const compressImage = (file: File, maxWidth = 800, quality = 0.6): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => {
@@ -67,7 +67,6 @@ export function AIChat({ language, systemContext }: AIChatProps) {
     if (!file) return;
     if (!file.type.startsWith("image/")) return;
     if (file.size > 10 * 1024 * 1024) return;
-
     try {
       const compressed = await compressImage(file);
       setImagePreview(compressed);
@@ -79,10 +78,43 @@ export function AIChat({ language, systemContext }: AIChatProps) {
     e.target.value = "";
   };
 
+  // Voice input using Web Speech API
+  const toggleVoice = useCallback(() => {
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert(language === "hi" ? "आपका ब्राउज़र वॉइस इनपुट सपोर्ट नहीं करता" : language === "kn" ? "ನಿಮ್ಮ ಬ್ರೌಸರ್ ಧ್ವನಿ ಇನ್‌ಪುಟ್ ಅನ್ನು ಬೆಂಬಲಿಸುವುದಿಲ್ಲ" : "Your browser doesn't support voice input");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = language === "hi" ? "hi-IN" : language === "kn" ? "kn-IN" : "en-US";
+    recognition.interimResults = true;
+    recognition.continuous = false;
+
+    recognition.onresult = (event: any) => {
+      const transcript = Array.from(event.results)
+        .map((r: any) => r[0].transcript)
+        .join("");
+      setInput(transcript);
+    };
+
+    recognition.onend = () => setIsListening(false);
+    recognition.onerror = () => setIsListening(false);
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsListening(true);
+  }, [isListening, language]);
+
   const send = async () => {
     if ((!input.trim() && !imagePreview) || isLoading) return;
 
-    // Build user message content
     let userContent: MessageContent;
     if (imagePreview) {
       const parts: Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }> = [];
@@ -102,7 +134,6 @@ export function AIChat({ language, systemContext }: AIChatProps) {
 
     let assistantSoFar = "";
 
-    // Prepare messages for API — include system context if present
     const apiMessages = systemContext
       ? [{ role: "user" as const, content: `Context: ${systemContext}` }, ...allMessages]
       : allMessages;
@@ -175,7 +206,6 @@ export function AIChat({ language, systemContext }: AIChatProps) {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center animate-reveal">
@@ -187,10 +217,10 @@ export function AIChat({ language, systemContext }: AIChatProps) {
             </h2>
             <p className="text-muted-foreground text-sm max-w-md">
               {language === "hi"
-                ? "मुझसे कुछ भी पूछें या एक तस्वीर अपलोड करें। मैं छवियों का विश्लेषण कर सकता हूँ!"
+                ? "मुझसे कुछ भी पूछें, तस्वीर भेजें, या माइक बटन दबाकर बोलें!"
                 : language === "kn"
-                ? "ನನ್ನನ್ನು ಏನಾದರೂ ಕೇಳಿ ಅಥವಾ ಫೋಟೋ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ. ನಾನು ಚಿತ್ರಗಳನ್ನು ವಿಶ್ಲೇಷಿಸಬಲ್ಲೆ!"
-                : "Ask me anything or upload a photo. I can analyze images too!"}
+                ? "ನನ್ನನ್ನು ಏನಾದರೂ ಕೇಳಿ, ಫೋಟೋ ಕಳುಹಿಸಿ, ಅಥವಾ ಮೈಕ್ ಒತ್ತಿ ಮಾತನಾಡಿ!"
+                : "Ask me anything, send a photo, or tap the mic to speak!"}
             </p>
           </div>
         )}
@@ -198,25 +228,16 @@ export function AIChat({ language, systemContext }: AIChatProps) {
         {messages.map((msg, i) => {
           const text = getDisplayText(msg.content);
           const images = getImages(msg.content);
-
           return (
-            <div
-              key={i}
-              className={`flex gap-3 animate-reveal ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-            >
+            <div key={i} className={`flex gap-3 animate-reveal ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
               {msg.role === "assistant" && (
                 <div className="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center shrink-0 mt-1">
                   <Bot className="w-4 h-4 text-primary" />
                 </div>
               )}
-              <div
-                className={`max-w-[75%] rounded-2xl text-sm leading-relaxed overflow-hidden ${
-                  msg.role === "user"
-                    ? "bg-primary text-primary-foreground rounded-br-md"
-                    : "glass-card rounded-bl-md"
-                }`}
-              >
-                {/* Attached images */}
+              <div className={`max-w-[75%] rounded-2xl text-sm leading-relaxed overflow-hidden ${
+                msg.role === "user" ? "bg-primary text-primary-foreground rounded-br-md" : "glass-card rounded-bl-md"
+              }`}>
                 {images.length > 0 && (
                   <div className="p-2 pb-0">
                     {images.map((src, j) => (
@@ -229,9 +250,7 @@ export function AIChat({ language, systemContext }: AIChatProps) {
                     <div className="prose prose-sm prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
                       <ReactMarkdown>{text}</ReactMarkdown>
                     </div>
-                  ) : (
-                    text
-                  )}
+                  ) : text}
                 </div>
               </div>
               {msg.role === "user" && (
@@ -255,7 +274,6 @@ export function AIChat({ language, systemContext }: AIChatProps) {
         )}
       </div>
 
-      {/* Image preview */}
       {imagePreview && (
         <div className="px-4 pt-2">
           <div className="relative inline-block">
@@ -270,19 +288,9 @@ export function AIChat({ language, systemContext }: AIChatProps) {
         </div>
       )}
 
-      {/* Input */}
       <div className="p-4 border-t border-border/30">
-        <form
-          onSubmit={(e) => { e.preventDefault(); send(); }}
-          className="flex items-center gap-2"
-        >
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleImageSelect}
-          />
+        <form onSubmit={(e) => { e.preventDefault(); send(); }} className="flex items-center gap-2">
+          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
@@ -292,10 +300,23 @@ export function AIChat({ language, systemContext }: AIChatProps) {
           >
             <Paperclip className="w-4.5 h-4.5" />
           </button>
+          <button
+            type="button"
+            onClick={toggleVoice}
+            disabled={isLoading}
+            className={`p-3 rounded-lg transition-all active:scale-95 ${
+              isListening
+                ? "bg-destructive/20 text-destructive animate-pulse"
+                : "hover:bg-muted/50 text-muted-foreground hover:text-foreground"
+            } disabled:opacity-40`}
+            title={language === "hi" ? "बोलकर टाइप करें" : language === "kn" ? "ಮಾತನಾಡಿ ಟೈಪ್ ಮಾಡಿ" : "Voice input"}
+          >
+            {isListening ? <MicOff className="w-4.5 h-4.5" /> : <Mic className="w-4.5 h-4.5" />}
+          </button>
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={imagePreview ? (language === "hi" ? "इस छवि के बारे में पूछें..." : language === "kn" ? "ಈ ಚಿತ್ರದ ಬಗ್ಗೆ ಕೇಳಿ..." : "Ask about this image...") : placeholders[language]}
+            placeholder={isListening ? (language === "hi" ? "सुन रहा हूँ..." : language === "kn" ? "ಕೇಳುತ್ತಿದ್ದೇನೆ..." : "Listening...") : imagePreview ? (language === "hi" ? "इस छवि के बारे में पूछें..." : language === "kn" ? "ಈ ಚಿತ್ರದ ಬಗ್ಗೆ ಕೇಳಿ..." : "Ask about this image...") : placeholders[language]}
             className="flex-1 glass-input px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 transition-shadow"
             disabled={isLoading}
           />
