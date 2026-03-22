@@ -19,6 +19,7 @@ serve(async (req) => {
       ? "Always respond in Kannada (ಕನ್ನಡ) using Kannada script."
       : "Respond in English.";
 
+    // Use gemini-2.5-flash which supports multimodal (text + images)
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -26,11 +27,11 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-2.5-flash",
         messages: [
           { 
             role: "system", 
-            content: `You are AI Studio, a premium multilingual AI assistant. ${langInstruction} You are helpful, creative, and knowledgeable. When asked about Indian recipes, provide authentic recipes with ingredients and step-by-step instructions. Keep responses well-formatted with markdown.` 
+            content: `You are AI Studio, a premium multilingual AI assistant with vision capabilities. ${langInstruction} You are helpful, creative, and knowledgeable. When a user sends an image, analyze it thoroughly — describe what you see, identify objects, text, landmarks, food, people, etc. Answer any questions the user has about the image. When asked about Indian recipes, provide authentic recipes with ingredients and step-by-step instructions. Keep responses well-formatted with markdown.` 
           },
           ...messages,
         ],
