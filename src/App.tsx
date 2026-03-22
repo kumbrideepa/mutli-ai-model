@@ -1,27 +1,43 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useState } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import Index from "./pages/Index.tsx";
-import NotFound from "./pages/NotFound.tsx";
+import { AppSidebar } from "@/components/AppSidebar";
+import ChatPage from "@/pages/ChatPage";
+import GalleryPage from "@/pages/GalleryPage";
+import RecipeGeniePage from "@/pages/RecipeGeniePage";
+import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+type Language = "en" | "hi" | "kn";
+
+const App = () => {
+  const [language, setLanguage] = useState<Language>("en");
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <div className="flex min-h-screen w-full">
+            <AppSidebar language={language} onLanguageChange={setLanguage} />
+            <main className="flex-1 min-h-screen">
+              <Routes>
+                <Route path="/" element={<ChatPage language={language} />} />
+                <Route path="/gallery" element={<GalleryPage language={language} />} />
+                <Route path="/recipe-genie" element={<RecipeGeniePage language={language} />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </main>
+          </div>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
