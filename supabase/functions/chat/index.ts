@@ -19,7 +19,6 @@ serve(async (req) => {
       ? "Always respond in Kannada (ಕನ್ನಡ) using Kannada script."
       : "Respond in English.";
 
-    // Use gemini-2.5-flash which supports multimodal (text + images)
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -37,6 +36,7 @@ serve(async (req) => {
         ],
         stream: true,
       }),
+      signal: AbortSignal.timeout(120000),
     });
 
     if (!response.ok) {
@@ -52,18 +52,21 @@ serve(async (req) => {
       }
       const t = await response.text();
       console.error("AI gateway error:", response.status, t);
-      return new Response(JSON.stringify({ error: "AI gateway error" }), {
+      return new Response(JSON.stringify({ error: `AI gateway error: ${response.status}` }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     return new Response(response.body, {
-      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+      headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive" },
     });
   } catch (e) {
     console.error("chat error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    const msg = e instanceof Error ? e.message : "Unknown error";
+    const isTimeout = msg.includes("abort") || msg.includes("timeout");
+    return new Response(JSON.stringify({ error: isTimeout ? "Request timed out. Try a smaller image or simpler question." : msg }), {
+      status: isTimeout ? 504 : 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
