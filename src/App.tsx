@@ -30,7 +30,9 @@ const App = () => {
             <main className="flex-1 min-h-screen">
               <Routes>
                 <Route path="/" element={<ChatPage language={language} />} />
-                <Route path="/gallery" element={<GalleryPage language={language} />} />
+                <Route path="/ai-games" element={<AIGamesPage language={language} />} />
+                <Route path="/ai-story" element={<AIStoryPage language={language} />} />
+                <Route path="/meme-generator" element={<MemeGeneratorPage language={language} />} />
                 <Route path="/recipe-genie" element={<RecipeGeniePage language={language} />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>

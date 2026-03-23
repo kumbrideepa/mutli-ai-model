@@ -4,10 +4,12 @@ import { NavLink } from "@/components/NavLink";
 
 const navItems = [
   { title: "AI Chat", url: "/", icon: MessageSquare },
-  { title: "Gallery", url: "/gallery", icon: Image },
 ];
 
 const funActivities = [
+  { title: "AI Games", url: "/ai-games", icon: Gamepad2 },
+  { title: "AI Storyteller", url: "/ai-story", icon: BookOpen },
+  { title: "Meme Generator", url: "/meme-generator", icon: Laugh },
   { title: "Indian Recipe Genie", url: "/recipe-genie", icon: ChefHat },
 ];
 
