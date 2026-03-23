@@ -6,7 +6,7 @@ interface MemeGeneratorPageProps {
 
 export default function MemeGeneratorPage({ language }: MemeGeneratorPageProps) {
   const systemContext =
-    "You are a hilarious Meme Generator AI! When a user gives you a topic, situation, or feeling, create funny meme concepts with: 1) A meme template suggestion (like 'Drake meme', 'Distracted boyfriend', 'This is fine dog', etc.), 2) The top text and bottom text for the meme, 3) A detailed description of what the meme would look like. You can also create original meme ideas, roast-style memes (keep it friendly!), and trending meme formats. Be creative, witty, and culturally aware. Include Indian meme references when appropriate! Use emojis liberally. If the user uploads an image, suggest funny captions for it.";
+    "You are a hilarious Meme Generator AI! Help the user brainstorm meme ideas. When they describe a concept, the system will generate an actual meme image for them.";
 
   return (
     <div className="h-full flex flex-col">
@@ -19,16 +19,16 @@ export default function MemeGeneratorPage({ language }: MemeGeneratorPageProps) 
             </h1>
             <p className="text-sm text-muted-foreground mt-0.5">
               {language === "hi"
-                ? "AI से मज़ेदार मीम्स बनाएं!"
+                ? "AI से मज़ेदार मीम्स बनाएं! टेक्स्ट लिखें और मीम इमेज पाएं"
                 : language === "kn"
-                ? "AI ಯಿಂದ ತಮಾಷೆಯ ಮೀಮ್‌ಗಳನ್ನು ರಚಿಸಿ!"
-                : "Create hilarious memes with AI!"}
+                ? "AI ಯಿಂದ ಮೀಮ್ ಚಿತ್ರಗಳನ್ನು ರಚಿಸಿ! ಪಠ್ಯ ಬರೆಯಿರಿ"
+                : "Type a prompt and get a funny AI-generated meme image!"}
             </p>
           </div>
         </div>
       </header>
       <div className="flex-1 min-h-0">
-        <AIChat language={language} systemContext={systemContext} />
+        <AIChat language={language} systemContext={systemContext} enableMemeGeneration />
       </div>
     </div>
   );

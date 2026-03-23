@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Loader2, Bot, User, Paperclip, X, Mic, MicOff } from "lucide-react";
+import { Send, Loader2, Bot, User, Paperclip, X, Mic, MicOff, ImagePlus, Brain, Eye, Globe, Sparkles } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
 type MessageContent = string | Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }>;
-type Msg = { role: "user" | "assistant"; content: MessageContent };
+type Msg = { role: "user" | "assistant"; content: MessageContent; generatedImage?: string };
 
 const getDisplayText = (content: MessageContent): string => {
   if (typeof content === "string") return content;
@@ -18,26 +18,38 @@ const getImages = (content: MessageContent): string[] => {
 interface AIChatProps {
   language: "en" | "hi" | "kn";
   systemContext?: string;
+  enableMemeGeneration?: boolean;
 }
 
-export function AIChat({ language, systemContext }: AIChatProps) {
+type ThinkingAgent = "brain" | "vision" | "multilingual" | "generation" | null;
+
+const agentLabels: Record<string, Record<string, string>> = {
+  brain: { en: "🧠 Brain Agent thinking...", hi: "🧠 ब्रेन एजेंट सोच रहा है...", kn: "🧠 ಬ್ರೈನ್ ಏಜೆಂಟ್ ಯೋಚಿಸುತ್ತಿದೆ..." },
+  vision: { en: "👁️ Vision Agent analyzing...", hi: "👁️ विज़न एजेंट विश्लेषण कर रहा है...", kn: "👁️ ವಿಷನ್ ಏಜೆಂಟ್ ವಿಶ್ಲೇಷಿಸುತ್ತಿದೆ..." },
+  multilingual: { en: "🌐 Multilingual Agent translating...", hi: "🌐 बहुभाषी एजेंट अनुवाद कर रहा है...", kn: "🌐 ಬಹುಭಾಷಾ ಏಜೆಂಟ್ ಅನುವಾದಿಸುತ್ತಿದೆ..." },
+  generation: { en: "🎨 Generation Agent creating meme...", hi: "🎨 जनरेशन एजेंट मीम बना रहा है...", kn: "🎨 ಜನರೇಶನ್ ಏಜೆಂಟ್ ಮೀಮ್ ರಚಿಸುತ್ತಿದೆ..." },
+};
+
+export function AIChat({ language, systemContext, enableMemeGeneration }: AIChatProps) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isListening, setIsListening] = useState(false);
+  const [thinkingAgent, setThinkingAgent] = useState<ThinkingAgent>(null);
+  const [isGeneratingMeme, setIsGeneratingMeme] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages]);
+  }, [messages, thinkingAgent]);
 
   const placeholders: Record<string, string> = {
-    en: "Type your message...",
-    hi: "अपना संदेश लिखें...",
-    kn: "ನಿಮ್ಮ ಸಂದೇಶವನ್ನು ಟೈಪ್ ಮಾಡಿ...",
+    en: enableMemeGeneration ? "Describe a meme idea..." : "Type your message...",
+    hi: enableMemeGeneration ? "मीम का विचार लिखें..." : "अपना संदेश लिखें...",
+    kn: enableMemeGeneration ? "ಮೀಮ್ ಐಡಿಯಾ ಬರೆಯಿರಿ..." : "ನಿಮ್ಮ ಸಂದೇಶವನ್ನು ಟೈಪ್ ಮಾಡಿ...",
   };
 
   const compressImage = (file: File, maxWidth = 800, quality = 0.6): Promise<string> => {
@@ -78,44 +90,73 @@ export function AIChat({ language, systemContext }: AIChatProps) {
     e.target.value = "";
   };
 
-  // Voice input using Web Speech API
   const toggleVoice = useCallback(() => {
     if (isListening) {
       recognitionRef.current?.stop();
       setIsListening(false);
       return;
     }
-
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
       alert(language === "hi" ? "आपका ब्राउज़र वॉइस इनपुट सपोर्ट नहीं करता" : language === "kn" ? "ನಿಮ್ಮ ಬ್ರೌಸರ್ ಧ್ವನಿ ಇನ್‌ಪುಟ್ ಅನ್ನು ಬೆಂಬಲಿಸುವುದಿಲ್ಲ" : "Your browser doesn't support voice input");
       return;
     }
-
     const recognition = new SpeechRecognition();
     recognition.lang = language === "hi" ? "hi-IN" : language === "kn" ? "kn-IN" : "en-US";
     recognition.interimResults = true;
     recognition.continuous = false;
-
     recognition.onresult = (event: any) => {
-      const transcript = Array.from(event.results)
-        .map((r: any) => r[0].transcript)
-        .join("");
+      const transcript = Array.from(event.results).map((r: any) => r[0].transcript).join("");
       setInput(transcript);
     };
-
     recognition.onend = () => setIsListening(false);
     recognition.onerror = () => setIsListening(false);
-
     recognitionRef.current = recognition;
     recognition.start();
     setIsListening(true);
   }, [isListening, language]);
 
+  const generateMeme = async (prompt: string) => {
+    setIsGeneratingMeme(true);
+    setThinkingAgent("generation");
+    try {
+      const MEME_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/meme-generate`;
+      const resp = await fetch(MEME_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ prompt, language }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || "Meme generation failed");
+      
+      setMessages((prev) => [
+        ...prev,
+        { 
+          role: "assistant", 
+          content: data.text || (language === "hi" ? "यहाँ आपका मीम है! 😂" : language === "kn" ? "ಇಲ್ಲಿ ನಿಮ್ಮ ಮೀಮ್! 😂" : "Here's your meme! 😂"),
+          generatedImage: data.imageUrl 
+        },
+      ]);
+    } catch (e: any) {
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: `⚠️ ${e.message || "Meme generation failed"}` },
+      ]);
+    } finally {
+      setIsGeneratingMeme(false);
+      setThinkingAgent(null);
+    }
+  };
+
   const send = async () => {
-    if ((!input.trim() && !imagePreview) || isLoading) return;
+    if ((!input.trim() && !imagePreview) || isLoading || isGeneratingMeme) return;
 
     let userContent: MessageContent;
+    const hasImage = !!imagePreview;
+
     if (imagePreview) {
       const parts: Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }> = [];
       parts.push({ type: "image_url", image_url: { url: imagePreview } });
@@ -130,10 +171,26 @@ export function AIChat({ language, systemContext }: AIChatProps) {
     setMessages(allMessages);
     setInput("");
     setImagePreview(null);
+
+    // For meme generator, use the image generation endpoint
+    if (enableMemeGeneration && !hasImage) {
+      const prompt = typeof userContent === "string" ? userContent : getDisplayText(userContent);
+      await generateMeme(prompt);
+      return;
+    }
+
     setIsLoading(true);
+    
+    // Determine which agent is "thinking"
+    if (hasImage) {
+      setThinkingAgent("vision");
+    } else if (language !== "en") {
+      setThinkingAgent("multilingual");
+    } else {
+      setThinkingAgent("brain");
+    }
 
     let assistantSoFar = "";
-
     const apiMessages = systemContext
       ? [{ role: "user" as const, content: `Context: ${systemContext}` }, ...allMessages]
       : allMessages;
@@ -160,6 +217,8 @@ export function AIChat({ language, systemContext }: AIChatProps) {
 
       const upsert = (chunk: string) => {
         assistantSoFar += chunk;
+        // Clear thinking once we get first token
+        setThinkingAgent(null);
         setMessages((prev) => {
           const last = prev[prev.length - 1];
           if (last?.role === "assistant") {
@@ -195,14 +254,18 @@ export function AIChat({ language, systemContext }: AIChatProps) {
         }
       }
     } catch (e: any) {
+      setThinkingAgent(null);
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: `⚠️ ${e.message || "Something went wrong. Please try again."}` },
       ]);
     } finally {
       setIsLoading(false);
+      setThinkingAgent(null);
     }
   };
+
+  const isBusy = isLoading || isGeneratingMeme;
 
   return (
     <div className="flex flex-col h-full">
@@ -215,13 +278,26 @@ export function AIChat({ language, systemContext }: AIChatProps) {
             <h2 className="font-display text-xl font-semibold mb-2">
               {language === "hi" ? "नमस्ते! मैं AI Studio हूँ" : language === "kn" ? "ನಮಸ್ಕಾರ! ನಾನು AI Studio" : "Hello! I'm AI Studio"}
             </h2>
-            <p className="text-muted-foreground text-sm max-w-md">
+            <p className="text-muted-foreground text-sm max-w-md mb-4">
               {language === "hi"
                 ? "मुझसे कुछ भी पूछें, तस्वीर भेजें, या माइक बटन दबाकर बोलें!"
                 : language === "kn"
                 ? "ನನ್ನನ್ನು ಏನಾದರೂ ಕೇಳಿ, ಫೋಟೋ ಕಳುಹಿಸಿ, ಅಥವಾ ಮೈಕ್ ಒತ್ತಿ ಮಾತನಾಡಿ!"
                 : "Ask me anything, send a photo, or tap the mic to speak!"}
             </p>
+            {/* Agent badges */}
+            <div className="flex flex-wrap gap-2 justify-center max-w-sm">
+              {[
+                { icon: Brain, label: language === "hi" ? "🧠 ब्रेन" : language === "kn" ? "🧠 ಬ್ರೈನ್" : "🧠 Brain" },
+                { icon: Eye, label: language === "hi" ? "👁️ विज़न" : language === "kn" ? "👁️ ವಿಷನ್" : "👁️ Vision" },
+                { icon: Globe, label: language === "hi" ? "🌐 बहुभाषी" : language === "kn" ? "🌐 ಬಹುಭಾಷಾ" : "🌐 Multilingual" },
+                ...(enableMemeGeneration ? [{ icon: ImagePlus, label: language === "hi" ? "🎨 जनरेशन" : language === "kn" ? "🎨 ಜನರೇಶನ್" : "🎨 Generation" }] : []),
+              ].map((agent) => (
+                <span key={agent.label} className="text-xs px-3 py-1.5 rounded-full bg-primary/10 text-primary font-medium border border-primary/20">
+                  {agent.label}
+                </span>
+              ))}
+            </div>
           </div>
         )}
 
@@ -245,6 +321,11 @@ export function AIChat({ language, systemContext }: AIChatProps) {
                     ))}
                   </div>
                 )}
+                {msg.generatedImage && (
+                  <div className="p-2 pb-0">
+                    <img src={msg.generatedImage} alt="Generated meme" className="rounded-lg max-h-80 w-auto object-contain" />
+                  </div>
+                )}
                 <div className="px-4 py-3">
                   {msg.role === "assistant" ? (
                     <div className="prose prose-sm prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
@@ -262,13 +343,21 @@ export function AIChat({ language, systemContext }: AIChatProps) {
           );
         })}
 
-        {isLoading && messages[messages.length - 1]?.role !== "assistant" && (
+        {/* Thinking UI */}
+        {thinkingAgent && (
           <div className="flex gap-3 animate-reveal">
             <div className="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center shrink-0">
               <Bot className="w-4 h-4 text-primary" />
             </div>
-            <div className="glass-card px-4 py-3 rounded-2xl rounded-bl-md">
-              <Loader2 className="w-4 h-4 animate-spin text-primary" />
+            <div className="glass-card px-4 py-3 rounded-2xl rounded-bl-md flex items-center gap-3">
+              <div className="flex gap-1">
+                <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "0ms" }} />
+                <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "150ms" }} />
+                <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "300ms" }} />
+              </div>
+              <span className="text-xs text-muted-foreground font-medium">
+                {agentLabels[thinkingAgent]?.[language] || agentLabels[thinkingAgent]?.en}
+              </span>
             </div>
           </div>
         )}
@@ -294,7 +383,7 @@ export function AIChat({ language, systemContext }: AIChatProps) {
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
-            disabled={isLoading}
+            disabled={isBusy}
             className="p-3 rounded-lg hover:bg-muted/50 text-muted-foreground hover:text-foreground disabled:opacity-40 transition-all active:scale-95"
             title={language === "hi" ? "छवि अपलोड करें" : language === "kn" ? "ಚಿತ್ರ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ" : "Upload image"}
           >
@@ -303,7 +392,7 @@ export function AIChat({ language, systemContext }: AIChatProps) {
           <button
             type="button"
             onClick={toggleVoice}
-            disabled={isLoading}
+            disabled={isBusy}
             className={`p-3 rounded-lg transition-all active:scale-95 ${
               isListening
                 ? "bg-destructive/20 text-destructive animate-pulse"
@@ -318,14 +407,14 @@ export function AIChat({ language, systemContext }: AIChatProps) {
             onChange={(e) => setInput(e.target.value)}
             placeholder={isListening ? (language === "hi" ? "सुन रहा हूँ..." : language === "kn" ? "ಕೇಳುತ್ತಿದ್ದೇನೆ..." : "Listening...") : imagePreview ? (language === "hi" ? "इस छवि के बारे में पूछें..." : language === "kn" ? "ಈ ಚಿತ್ರದ ಬಗ್ಗೆ ಕೇಳಿ..." : "Ask about this image...") : placeholders[language]}
             className="flex-1 glass-input px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 transition-shadow"
-            disabled={isLoading}
+            disabled={isBusy}
           />
           <button
             type="submit"
-            disabled={isLoading || (!input.trim() && !imagePreview)}
+            disabled={isBusy || (!input.trim() && !imagePreview)}
             className="p-3 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 transition-all active:scale-95"
           >
-            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            {isBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : enableMemeGeneration ? <ImagePlus className="w-4 h-4" /> : <Send className="w-4 h-4" />}
           </button>
         </form>
       </div>

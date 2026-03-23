@@ -14,10 +14,24 @@ serve(async (req) => {
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
     const langInstruction = language === "hi" 
-      ? "The user has selected Hindi. You MUST respond entirely in Hindi (हिन्दी) using Devanagari script. Do not use English unless quoting technical terms."
+      ? "CRITICAL LANGUAGE RULE: The user has selected Hindi (हिन्दी). You MUST respond ENTIRELY in Hindi using Devanagari script. Every single word of your response must be in Hindi. Do NOT use any English words except technical terms that have no Hindi equivalent. This is non-negotiable."
       : language === "kn"
-      ? "The user has selected Kannada. You MUST respond entirely in Kannada (ಕನ್ನಡ) using Kannada script. Do not use English unless quoting technical terms."
-      : "The user has selected English. Respond in English.";
+      ? "CRITICAL LANGUAGE RULE: The user has selected Kannada (ಕನ್ನಡ). You MUST respond ENTIRELY in Kannada using Kannada script. Every single word of your response must be in Kannada. Do NOT use any English words except technical terms that have no Kannada equivalent. This is non-negotiable."
+      : "Respond in English.";
+
+    // Strip base64 images from history (keep only the last message's images) to prevent payload bloat
+    const processedMessages = messages.map((msg: any, idx: number) => {
+      if (idx < messages.length - 1 && Array.isArray(msg.content)) {
+        // For older messages, strip image data but keep text
+        const textParts = msg.content.filter((p: any) => p.type === "text");
+        const hasImages = msg.content.some((p: any) => p.type === "image_url");
+        if (hasImages) {
+          textParts.push({ type: "text", text: "[User previously shared an image here]" });
+        }
+        return { ...msg, content: textParts.length === 1 ? textParts[0].text : textParts };
+      }
+      return msg;
+    });
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -30,19 +44,17 @@ serve(async (req) => {
         messages: [
           { 
             role: "system", 
-            content: `You are AI Studio, a brilliant multilingual AI assistant with vision capabilities. ${langInstruction}
+            content: `You are AI Studio, a powerful multi-agentic AI assistant. ${langInstruction}
 
-You are extraordinarily knowledgeable, helpful, creative, and precise. You can answer questions on any topic — science, math, history, coding, philosophy, health, finance, culture, and more.
+AGENTS AT YOUR DISPOSAL:
+🧠 BRAIN AGENT: You have encyclopedic knowledge. Answer any question accurately — science, math, coding, history, philosophy, health, finance, culture, and more.
+💾 MEMORY AGENT: The complete conversation history is provided. Always reference previous messages naturally. Remember names, preferences, and context from earlier in the conversation.
+👁️ VISION AGENT: When a user sends an image, analyze it thoroughly — identify objects, text, landmarks, food, people, emotions, colors, layout. Provide detailed visual analysis.
+🌐 MULTILINGUAL AGENT: ${langInstruction}
 
-VISION: When a user sends an image, analyze it thoroughly. Describe what you see in detail — identify objects, text, landmarks, food, people, emotions, colors, layout, and context. Answer any follow-up questions about the image.
-
-MEMORY: The full conversation history is provided. Reference previous messages naturally to maintain context and continuity.
-
-RECIPES: When asked about Indian recipes, provide authentic recipes with precise ingredients and step-by-step instructions.
-
-FORMAT: Use markdown for well-structured responses — headings, bullet points, code blocks, bold, etc.` 
+FORMAT: Use markdown with headings, bullets, code blocks, and bold text for well-structured responses.`
           },
-          ...messages,
+          ...processedMessages,
         ],
         stream: true,
       }),
