@@ -6,7 +6,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppSidebar } from "@/components/AppSidebar";
 import ChatPage from "@/pages/ChatPage";
-import GalleryPage from "@/pages/GalleryPage";
+import AIGamesPage from "@/pages/AIGamesPage";
+import AIStoryPage from "@/pages/AIStoryPage";
+import MemeGeneratorPage from "@/pages/MemeGeneratorPage";
 import RecipeGeniePage from "@/pages/RecipeGeniePage";
 import NotFound from "@/pages/NotFound";
 
