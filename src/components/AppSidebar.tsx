@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MessageSquare, Image, ChefHat, Sparkles, Globe, ChevronLeft, ChevronRight } from "lucide-react";
+import { MessageSquare, Gamepad2, BookOpen, Laugh, ChefHat, Sparkles, Globe, ChevronLeft, ChevronRight } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 
 const navItems = [
