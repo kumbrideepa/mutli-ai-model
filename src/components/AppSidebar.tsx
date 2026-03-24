@@ -141,6 +141,16 @@ export function AppSidebar({ language, onLanguageChange, onLogout }: AppSidebarP
           </button>
         )}
       </div>
+
+      {/* Logout */}
+      {onLogout && (
+        <div className="p-3 border-t border-border/30">
+          <button onClick={onLogout} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-destructive hover:bg-destructive/10 transition-colors">
+            <LogOut className="w-4.5 h-4.5 shrink-0" />
+            {!collapsed && <span>{language === "hi" ? "लॉग आउट" : language === "kn" ? "ಲಾಗ್ ಔಟ್" : "Log Out"}</span>}
+          </button>
+        </div>
+      )}
     </aside>
   );
 }
