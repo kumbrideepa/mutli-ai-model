@@ -333,6 +333,21 @@ export function AIChat({ language, systemContext, enableMemeGeneration }: AIChat
                     </div>
                   ) : text}
                 </div>
+                {msg.role === "assistant" && text && (
+                  <button
+                    onClick={() => {
+                      if (speechSynthesis.speaking) { speechSynthesis.cancel(); return; }
+                      const utter = new SpeechSynthesisUtterance(text);
+                      utter.lang = language === "hi" ? "hi-IN" : language === "kn" ? "kn-IN" : "en-US";
+                      speechSynthesis.speak(utter);
+                    }}
+                    className="px-4 pb-2 text-xs text-muted-foreground hover:text-primary transition-colors"
+                    title={language === "hi" ? "सुनें" : language === "kn" ? "ಕೇಳಿ" : "Listen"}
+                  >
+                    <Volume2 className="w-3.5 h-3.5 inline mr-1" />
+                    {language === "hi" ? "सुनें" : language === "kn" ? "ಕೇಳಿ" : "Listen"}
+                  </button>
+                )}
               </div>
               {msg.role === "user" && (
                 <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center shrink-0 mt-1">

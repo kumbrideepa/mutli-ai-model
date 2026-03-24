@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { MessageSquare, Gamepad2, BookOpen, Laugh, ChefHat, Sparkles, Globe, ChevronLeft, ChevronRight } from "lucide-react";
+import { MessageSquare, Gamepad2, BookOpen, Laugh, ChefHat, Sparkles, Globe, ChevronLeft, ChevronRight, Users, GraduationCap, LogOut } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 
 const navItems = [
   { title: "AI Chat", url: "/", icon: MessageSquare },
+  { title: "Group Chat", url: "/group-chat", icon: Users },
+  { title: "Study Mode", url: "/study-mode", icon: GraduationCap },
 ];
 
 const funActivities = [
