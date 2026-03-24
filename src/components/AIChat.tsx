@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Loader2, Bot, User, Paperclip, X, Mic, MicOff, ImagePlus, Brain, Eye, Globe, Sparkles } from "lucide-react";
+import { Send, Loader2, Bot, User, Paperclip, X, Mic, MicOff, ImagePlus, Brain, Eye, Globe, Sparkles, Volume2, VolumeX } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
 type MessageContent = string | Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }>;
