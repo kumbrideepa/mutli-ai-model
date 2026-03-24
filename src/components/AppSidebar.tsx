@@ -26,9 +26,10 @@ const languages: { code: Language; label: string; flag: string }[] = [
 interface AppSidebarProps {
   language: Language;
   onLanguageChange: (lang: Language) => void;
+  onLogout?: () => void;
 }
 
-export function AppSidebar({ language, onLanguageChange }: AppSidebarProps) {
+export function AppSidebar({ language, onLanguageChange, onLogout }: AppSidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
