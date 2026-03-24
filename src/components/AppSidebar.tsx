@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { MessageSquare, Gamepad2, BookOpen, Laugh, ChefHat, Sparkles, Globe, ChevronLeft, ChevronRight } from "lucide-react";
+import { MessageSquare, Gamepad2, BookOpen, Laugh, ChefHat, Sparkles, Globe, ChevronLeft, ChevronRight, Users, GraduationCap, LogOut } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 
 const navItems = [
   { title: "AI Chat", url: "/", icon: MessageSquare },
+  { title: "Group Chat", url: "/group-chat", icon: Users },
+  { title: "Study Mode", url: "/study-mode", icon: GraduationCap },
 ];
 
 const funActivities = [
@@ -24,9 +26,10 @@ const languages: { code: Language; label: string; flag: string }[] = [
 interface AppSidebarProps {
   language: Language;
   onLanguageChange: (lang: Language) => void;
+  onLogout?: () => void;
 }
 
-export function AppSidebar({ language, onLanguageChange }: AppSidebarProps) {
+export function AppSidebar({ language, onLanguageChange, onLogout }: AppSidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
@@ -138,6 +141,16 @@ export function AppSidebar({ language, onLanguageChange }: AppSidebarProps) {
           </button>
         )}
       </div>
+
+      {/* Logout */}
+      {onLogout && (
+        <div className="p-3 border-t border-border/30">
+          <button onClick={onLogout} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-destructive hover:bg-destructive/10 transition-colors">
+            <LogOut className="w-4.5 h-4.5 shrink-0" />
+            {!collapsed && <span>{language === "hi" ? "लॉग आउट" : language === "kn" ? "ಲಾಗ್ ಔಟ್" : "Log Out"}</span>}
+          </button>
+        </div>
+      )}
     </aside>
   );
 }
