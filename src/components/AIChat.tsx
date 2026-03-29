@@ -421,7 +421,7 @@ export function AIChat({ language, systemContext, enableMemeGeneration }: AIChat
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={isListening ? (language === "hi" ? "सुन रहा हूँ..." : language === "kn" ? "ಕೇಳುತ್ತಿದ್ದೇನೆ..." : "Listening...") : imagePreview ? (language === "hi" ? "इस छवि के बारे में पूछें..." : language === "kn" ? "ಈ ಚಿತ್ರದ ಬಗ್ಗೆ ಕೇಳಿ..." : "Ask about this image...") : placeholders[language]}
-            className="flex-1 glass-input px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 transition-shadow"
+            className="flex-1 min-w-0 glass-input px-3 md:px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 transition-shadow"
             disabled={isBusy}
           />
           <button
