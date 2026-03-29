@@ -392,8 +392,8 @@ export function AIChat({ language, systemContext, enableMemeGeneration }: AIChat
         </div>
       )}
 
-      <div className="p-4 border-t border-border/30">
-        <form onSubmit={(e) => { e.preventDefault(); send(); }} className="flex items-center gap-2">
+      <div className="p-3 md:p-4 border-t border-border/30">
+        <form onSubmit={(e) => { e.preventDefault(); send(); }} className="flex items-center gap-1.5 md:gap-2">
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
           <button
             type="button"
