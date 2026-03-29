@@ -311,7 +311,7 @@ export function AIChat({ language, systemContext, enableMemeGeneration }: AIChat
                   <Bot className="w-4 h-4 text-primary" />
                 </div>
               )}
-              <div className={`max-w-[75%] rounded-2xl text-sm leading-relaxed overflow-hidden ${
+              <div className={`max-w-[85%] md:max-w-[75%] rounded-2xl text-sm leading-relaxed overflow-hidden ${
                 msg.role === "user" ? "bg-primary text-primary-foreground rounded-br-md" : "glass-card rounded-bl-md"
               }`}>
                 {images.length > 0 && (
