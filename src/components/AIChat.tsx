@@ -311,7 +311,7 @@ export function AIChat({ language, systemContext, enableMemeGeneration }: AIChat
                   <Bot className="w-4 h-4 text-primary" />
                 </div>
               )}
-              <div className={`max-w-[75%] rounded-2xl text-sm leading-relaxed overflow-hidden ${
+              <div className={`max-w-[85%] md:max-w-[75%] rounded-2xl text-sm leading-relaxed overflow-hidden ${
                 msg.role === "user" ? "bg-primary text-primary-foreground rounded-br-md" : "glass-card rounded-bl-md"
               }`}>
                 {images.length > 0 && (
@@ -392,8 +392,8 @@ export function AIChat({ language, systemContext, enableMemeGeneration }: AIChat
         </div>
       )}
 
-      <div className="p-4 border-t border-border/30">
-        <form onSubmit={(e) => { e.preventDefault(); send(); }} className="flex items-center gap-2">
+      <div className="p-3 md:p-4 border-t border-border/30">
+        <form onSubmit={(e) => { e.preventDefault(); send(); }} className="flex items-center gap-1.5 md:gap-2">
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
           <button
             type="button"
@@ -421,7 +421,7 @@ export function AIChat({ language, systemContext, enableMemeGeneration }: AIChat
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={isListening ? (language === "hi" ? "सुन रहा हूँ..." : language === "kn" ? "ಕೇಳುತ್ತಿದ್ದೇನೆ..." : "Listening...") : imagePreview ? (language === "hi" ? "इस छवि के बारे में पूछें..." : language === "kn" ? "ಈ ಚಿತ್ರದ ಬಗ್ಗೆ ಕೇಳಿ..." : "Ask about this image...") : placeholders[language]}
-            className="flex-1 glass-input px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 transition-shadow"
+            className="flex-1 min-w-0 glass-input px-3 md:px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 transition-shadow"
             disabled={isBusy}
           />
           <button

@@ -29,7 +29,7 @@ const App = () => {
         <BrowserRouter>
           <div className="flex min-h-screen w-full">
             <AppSidebar language={language} onLanguageChange={setLanguage} />
-            <main className="flex-1 min-h-screen">
+            <main className="flex-1 min-h-screen w-full overflow-hidden">
               <Routes>
                 <Route path="/" element={<ChatPage language={language} />} />
                 <Route path="/ai-games" element={<AIGamesPage language={language} />} />

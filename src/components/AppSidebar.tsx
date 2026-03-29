@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MessageSquare, Gamepad2, BookOpen, Laugh, ChefHat, Sparkles, Globe, ChevronLeft, ChevronRight, Users, GraduationCap, LogOut } from "lucide-react";
+import { MessageSquare, Gamepad2, BookOpen, Laugh, ChefHat, Sparkles, Globe, ChevronLeft, ChevronRight, Users, GraduationCap, LogOut, Menu, X } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 
 const navItems = [
@@ -31,13 +31,10 @@ interface AppSidebarProps {
 
 export function AppSidebar({ language, onLanguageChange, onLogout }: AppSidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  return (
-    <aside
-      className={`glass-strong flex flex-col h-screen sticky top-0 transition-all duration-300 ${
-        collapsed ? "w-16" : "w-64"
-      }`}
-    >
+  const sidebarContent = (
+    <>
       {/* Header */}
       <div className="flex items-center gap-3 p-4 border-b border-border/30">
         <div className="w-9 h-9 rounded-lg bg-primary/20 flex items-center justify-center glow-primary shrink-0">
@@ -48,11 +45,19 @@ export function AppSidebar({ language, onLanguageChange, onLogout }: AppSidebarP
             AI Studio
           </h1>
         )}
+        {/* Desktop collapse button */}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="ml-auto p-1 rounded-md hover:bg-muted/50 transition-colors text-muted-foreground"
+          className="ml-auto p-1 rounded-md hover:bg-muted/50 transition-colors text-muted-foreground hidden md:block"
         >
           {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+        </button>
+        {/* Mobile close button */}
+        <button
+          onClick={() => setMobileOpen(false)}
+          className="ml-auto p-1 rounded-md hover:bg-muted/50 transition-colors text-muted-foreground md:hidden"
+        >
+          <X className="w-5 h-5" />
         </button>
       </div>
 
@@ -72,6 +77,7 @@ export function AppSidebar({ language, onLanguageChange, onLogout }: AppSidebarP
                   end
                   className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-sidebar-foreground hover:bg-muted/40 transition-colors"
                   activeClassName="bg-primary/15 text-primary font-medium glow-primary"
+                  onClick={() => setMobileOpen(false)}
                 >
                   <item.icon className="w-4.5 h-4.5 shrink-0" />
                   {!collapsed && <span>{item.title}</span>}
@@ -94,6 +100,7 @@ export function AppSidebar({ language, onLanguageChange, onLogout }: AppSidebarP
                   to={item.url}
                   className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-sidebar-foreground hover:bg-muted/40 transition-colors"
                   activeClassName="bg-accent/15 text-accent font-medium glow-accent"
+                  onClick={() => setMobileOpen(false)}
                 >
                   <item.icon className="w-4.5 h-4.5 shrink-0" />
                   {!collapsed && <span>{item.title}</span>}
@@ -151,6 +158,44 @@ export function AppSidebar({ language, onLanguageChange, onLogout }: AppSidebarP
           </button>
         </div>
       )}
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Mobile hamburger button - fixed top-left */}
+      <button
+        onClick={() => setMobileOpen(true)}
+        className="fixed top-3 left-3 z-50 p-2 rounded-lg bg-card/80 backdrop-blur-sm border border-border/30 text-foreground md:hidden"
+      >
+        <Menu className="w-5 h-5" />
+      </button>
+
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 z-40 md:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* Mobile sidebar drawer */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-72 glass-strong flex flex-col transition-transform duration-300 md:hidden ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        {sidebarContent}
+      </aside>
+
+      {/* Desktop sidebar */}
+      <aside
+        className={`glass-strong flex-col h-screen sticky top-0 transition-all duration-300 hidden md:flex ${
+          collapsed ? "w-16" : "w-64"
+        }`}
+      >
+        {sidebarContent}
+      </aside>
+    </>
   );
 }
