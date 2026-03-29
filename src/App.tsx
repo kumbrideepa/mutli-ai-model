@@ -5,16 +5,6 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppSidebar } from "@/components/AppSidebar";
-import { supabase } from "@/integrations/supabase/client";
-import type { Session } from "@supabase/supabase-js";
-import ChatPage from "@/pages/ChatPage";
-import AIGamesPage from "@/pages/AIGamesPage";
-import AIStoryPage from "@/pages/AIStoryPage";
-import MemeGeneratorPage from "@/pages/MemeGeneratorPage";
-import RecipeGeniePage from "@/pages/RecipeGeniePage";
-import GroupChatPage from "@/pages/GroupChatPage";
-import StudyModePage from "@/pages/StudyModePage";
-import AuthPage from "@/pages/AuthPage";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
