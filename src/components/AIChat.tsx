@@ -402,42 +402,42 @@ export function AIChat({ language, systemContext, enableMemeGeneration, initialM
         </div>
       )}
 
-      <div className="p-3 md:p-4 border-t border-border/30">
-        <form onSubmit={(e) => { e.preventDefault(); send(); }} className="flex items-center gap-1.5 md:gap-2">
+      <div className="p-2 md:p-4 border-t border-border/30 safe-bottom">
+        <form onSubmit={(e) => { e.preventDefault(); send(); }} className="flex items-center gap-1 md:gap-2">
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
             disabled={isBusy}
-            className="p-3 rounded-lg hover:bg-muted/50 text-muted-foreground hover:text-foreground disabled:opacity-40 transition-all active:scale-95"
+            className="p-2 md:p-3 rounded-lg hover:bg-muted/50 text-muted-foreground hover:text-foreground disabled:opacity-40 transition-all active:scale-95 shrink-0"
             title={language === "hi" ? "छवि अपलोड करें" : language === "kn" ? "ಚಿತ್ರ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ" : "Upload image"}
           >
-            <Paperclip className="w-4.5 h-4.5" />
+            <Paperclip className="w-4 h-4" />
           </button>
           <button
             type="button"
             onClick={toggleVoice}
             disabled={isBusy}
-            className={`p-3 rounded-lg transition-all active:scale-95 ${
+            className={`p-2 md:p-3 rounded-lg transition-all active:scale-95 shrink-0 ${
               isListening
                 ? "bg-destructive/20 text-destructive animate-pulse"
                 : "hover:bg-muted/50 text-muted-foreground hover:text-foreground"
             } disabled:opacity-40`}
             title={language === "hi" ? "बोलकर टाइप करें" : language === "kn" ? "ಮಾತನಾಡಿ ಟೈಪ್ ಮಾಡಿ" : "Voice input"}
           >
-            {isListening ? <MicOff className="w-4.5 h-4.5" /> : <Mic className="w-4.5 h-4.5" />}
+            {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
           </button>
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={isListening ? (language === "hi" ? "सुन रहा हूँ..." : language === "kn" ? "ಕೇಳುತ್ತಿದ್ದೇನೆ..." : "Listening...") : imagePreview ? (language === "hi" ? "इस छवि के बारे में पूछें..." : language === "kn" ? "ಈ ಚಿತ್ರದ ಬಗ್ಗೆ ಕೇಳಿ..." : "Ask about this image...") : placeholders[language]}
-            className="flex-1 min-w-0 glass-input px-3 md:px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 transition-shadow"
+            className="flex-1 min-w-0 glass-input px-3 py-2.5 md:py-3 text-base md:text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 transition-shadow rounded-xl"
             disabled={isBusy}
           />
           <button
             type="submit"
             disabled={isBusy || (!input.trim() && !imagePreview)}
-            className="p-3 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 transition-all active:scale-95"
+            className="p-2.5 md:p-3 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 transition-all active:scale-95 shrink-0"
           >
             {isBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : enableMemeGeneration ? <ImagePlus className="w-4 h-4" /> : <Send className="w-4 h-4" />}
           </button>
