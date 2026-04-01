@@ -48,6 +48,11 @@ export function AIChat({ language, systemContext, enableMemeGeneration, initialM
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, thinkingAgent]);
 
+  // Notify parent of message changes (skip initial render)
+  useEffect(() => {
+    if (messages.length > 0) onMessagesChange?.(messages);
+  }, [messages]);
+
   const placeholders: Record<string, string> = {
     en: enableMemeGeneration ? "Describe a meme idea..." : "Type your message...",
     hi: enableMemeGeneration ? "मीम का विचार लिखें..." : "अपना संदेश लिखें...",
