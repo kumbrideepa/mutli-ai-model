@@ -166,7 +166,8 @@ export function AppSidebar({ language, onLanguageChange, onLogout }: AppSidebarP
       {/* Mobile hamburger button - fixed top-left */}
       <button
         onClick={() => setMobileOpen(true)}
-        className="fixed top-3 left-3 z-50 p-2 rounded-lg bg-card/80 backdrop-blur-sm border border-border/30 text-foreground md:hidden"
+        className="fixed left-2 z-50 rounded-lg border border-border/30 bg-card/80 p-2 text-foreground backdrop-blur-sm md:hidden"
+        style={{ top: "max(0.5rem, env(safe-area-inset-top))" }}
       >
         <Menu className="w-5 h-5" />
       </button>
@@ -181,7 +182,7 @@ export function AppSidebar({ language, onLanguageChange, onLogout }: AppSidebarP
 
       {/* Mobile sidebar drawer */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-72 glass-strong flex flex-col transition-transform duration-300 md:hidden ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-[85vw] max-w-[18rem] flex-col glass-strong transition-transform duration-300 md:hidden ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >

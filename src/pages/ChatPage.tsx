@@ -1,8 +1,8 @@
 import { useState } from "react";
+import { History } from "lucide-react";
 import { AIChat } from "@/components/AIChat";
 import { ChatHistoryPanel } from "@/components/ChatHistoryPanel";
 import { useChatHistory } from "@/hooks/useChatHistory";
-import { History } from "lucide-react";
 
 interface ChatPageProps {
   language: "en" | "hi" | "kn";
@@ -26,39 +26,39 @@ export default function ChatPage({ language }: ChatPageProps) {
     updateMessages(id, messages);
   };
 
-  // Ensure there's always an active chat
   const currentId = activeId || "pending";
 
   return (
-    <div className="h-screen md:h-full flex flex-col">
-      <header className="px-4 md:px-6 py-3 md:py-4 border-b border-border/30 pl-14 md:pl-6 flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-lg md:text-xl font-semibold">
+    <div className="flex h-[100dvh] flex-col overflow-hidden md:h-full">
+      <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border/30 px-3 py-3 pl-14 md:px-6 md:py-4 md:pl-6">
+        <div className="min-w-0">
+          <h1 className="font-display text-lg font-semibold md:text-xl">
             {language === "hi" ? "AI चैट" : language === "kn" ? "AI ಚಾಟ್" : "AI Chat"}
           </h1>
-          <p className="text-xs md:text-sm text-muted-foreground mt-0.5">
+          <p className="mt-0.5 text-xs text-muted-foreground md:text-sm">
             {language === "hi" ? "अपना प्रश्न पूछें" : language === "kn" ? "ನಿಮ್ಮ ಪ್ರಶ್ನೆ ಕೇಳಿ" : "Ask anything, get intelligent answers"}
           </p>
         </div>
+
         <button
           onClick={() => setShowHistory(!showHistory)}
-          className="p-2 rounded-lg hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors relative"
+          className="relative shrink-0 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
           title={language === "hi" ? "चैट इतिहास" : language === "kn" ? "ಚಾಟ್ ಇತಿಹಾಸ" : "Chat History"}
         >
-          <History className="w-5 h-5" />
+          <History className="h-5 w-5" />
           {conversations.length > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center">
+            <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
               {conversations.length > 9 ? "9+" : conversations.length}
             </span>
           )}
         </button>
       </header>
-      <div className="flex-1 min-h-0 flex relative">
-        {/* History panel - slides in on mobile, sidebar on desktop */}
+
+      <div className="relative flex min-h-0 flex-1 overflow-hidden">
         {showHistory && (
           <>
-            <div className="absolute inset-0 bg-background/80 z-10 md:hidden" onClick={() => setShowHistory(false)} />
-            <div className="absolute left-0 top-0 bottom-0 w-64 z-20 md:relative md:w-56 lg:w-64">
+            <div className="absolute inset-0 z-10 bg-background/80 md:hidden" onClick={() => setShowHistory(false)} />
+            <div className="absolute left-0 top-0 bottom-0 z-20 w-[85vw] max-w-64 md:relative md:w-56 lg:w-64">
               <ChatHistoryPanel
                 conversations={conversations}
                 activeId={activeId}
@@ -71,7 +71,8 @@ export default function ChatPage({ language }: ChatPageProps) {
             </div>
           </>
         )}
-        <div className="flex-1 min-w-0">
+
+        <div className="flex-1 min-w-0 overflow-hidden">
           <AIChat
             key={currentId}
             language={language}
