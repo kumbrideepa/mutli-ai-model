@@ -44,8 +44,11 @@ export function AIChat({ language, systemContext, enableMemeGeneration, initialM
   const fileRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
 
+  // Auto-scroll to bottom whenever messages change or AI is thinking
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+    setTimeout(() => {
+      scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+    }, 50);
   }, [messages, thinkingAgent]);
 
   // Notify parent of message changes (skip initial render)
