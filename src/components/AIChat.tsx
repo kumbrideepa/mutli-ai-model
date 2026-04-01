@@ -32,8 +32,8 @@ const agentLabels: Record<string, Record<string, string>> = {
   generation: { en: "🎨 Generation Agent creating meme...", hi: "🎨 जनरेशन एजेंट मीम बना रहा है...", kn: "🎨 ಜನರೇಶನ್ ಏಜೆಂಟ್ ಮೀಮ್ ರಚಿಸುತ್ತಿದೆ..." },
 };
 
-export function AIChat({ language, systemContext, enableMemeGeneration }: AIChatProps) {
-  const [messages, setMessages] = useState<Msg[]>([]);
+export function AIChat({ language, systemContext, enableMemeGeneration, initialMessages, onMessagesChange }: AIChatProps) {
+  const [messages, setMessages] = useState<Msg[]>(initialMessages || []);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
