@@ -63,10 +63,26 @@
     @apply border-border;
   }
 
+  html {
+    width: 100%;
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    min-height: 100dvh;
+    width: 100%;
+    overflow-x: hidden;
     background: var(--gradient-hero);
     background-attachment: fixed;
+  }
+
+  #root {
+    min-height: 100dvh;
+    width: 100%;
+    overflow-x: hidden;
   }
 }
 

@@ -278,10 +278,10 @@ export function AIChat({ language, systemContext, enableMemeGeneration, initialM
   const isBusy = isLoading || isGeneratingMeme;
 
   return (
-    <div className="flex flex-col h-full max-h-[100dvh]">
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 md:p-4 space-y-3 md:space-y-4 scroll-smooth">
+    <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden">
+      <div ref={scrollRef} className="flex-1 overflow-x-hidden overflow-y-auto p-3 md:p-4 space-y-3 md:space-y-4 scroll-smooth">
         {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-center animate-reveal">
+          <div className="flex flex-col items-center justify-center h-full text-center animate-reveal px-2">
             <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4 glow-primary">
               <Bot className="w-8 h-8 text-primary" />
             </div>
@@ -295,7 +295,6 @@ export function AIChat({ language, systemContext, enableMemeGeneration, initialM
                 ? "ನನ್ನನ್ನು ಏನಾದರೂ ಕೇಳಿ, ಫೋಟೋ ಕಳುಹಿಸಿ, ಅಥವಾ ಮೈಕ್ ಒತ್ತಿ ಮಾತನಾಡಿ!"
                 : "Ask me anything, send a photo, or tap the mic to speak!"}
             </p>
-            {/* Agent badges */}
             <div className="flex flex-wrap gap-2 justify-center max-w-sm">
               {[
                 { icon: Brain, label: language === "hi" ? "🧠 ब्रेन" : language === "kn" ? "🧠 ಬ್ರೈನ್" : "🧠 Brain" },
@@ -321,24 +320,24 @@ export function AIChat({ language, systemContext, enableMemeGeneration, initialM
                   <Bot className="w-4 h-4 text-primary" />
                 </div>
               )}
-              <div className={`max-w-[85%] md:max-w-[75%] rounded-2xl text-sm leading-relaxed overflow-hidden ${
+              <div className={`max-w-[calc(100%-2.75rem)] sm:max-w-[85%] md:max-w-[75%] rounded-2xl text-sm leading-relaxed overflow-hidden ${
                 msg.role === "user" ? "bg-primary text-primary-foreground rounded-br-md" : "glass-card rounded-bl-md"
               }`}>
                 {images.length > 0 && (
                   <div className="p-2 pb-0">
                     {images.map((src, j) => (
-                      <img key={j} src={src} alt="Uploaded" className="rounded-lg max-h-48 w-auto object-contain" />
+                      <img key={j} src={src} alt="Uploaded" className="max-w-full rounded-lg max-h-48 w-auto object-contain" />
                     ))}
                   </div>
                 )}
                 {msg.generatedImage && (
                   <div className="p-2 pb-0">
-                    <img src={msg.generatedImage} alt="Generated meme" className="rounded-lg max-h-80 w-auto object-contain" />
+                    <img src={msg.generatedImage} alt="Generated meme" className="max-w-full rounded-lg max-h-80 w-auto object-contain" />
                   </div>
                 )}
-                <div className="px-4 py-3">
+                <div className="px-4 py-3 break-words">
                   {msg.role === "assistant" ? (
-                    <div className="prose prose-sm prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                    <div className="prose prose-sm prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 break-words">
                       <ReactMarkdown>{text}</ReactMarkdown>
                     </div>
                   ) : text}
@@ -368,19 +367,18 @@ export function AIChat({ language, systemContext, enableMemeGeneration, initialM
           );
         })}
 
-        {/* Thinking UI */}
         {thinkingAgent && (
           <div className="flex gap-3 animate-reveal">
             <div className="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center shrink-0">
               <Bot className="w-4 h-4 text-primary" />
             </div>
-            <div className="glass-card px-4 py-3 rounded-2xl rounded-bl-md flex items-center gap-3">
+            <div className="glass-card px-4 py-3 rounded-2xl rounded-bl-md flex items-center gap-3 max-w-[calc(100%-2.75rem)]">
               <div className="flex gap-1">
                 <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "0ms" }} />
                 <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "150ms" }} />
                 <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "300ms" }} />
               </div>
-              <span className="text-xs text-muted-foreground font-medium">
+              <span className="text-xs text-muted-foreground font-medium break-words">
                 {agentLabels[thinkingAgent]?.[language] || agentLabels[thinkingAgent]?.en}
               </span>
             </div>
@@ -389,9 +387,9 @@ export function AIChat({ language, systemContext, enableMemeGeneration, initialM
       </div>
 
       {imagePreview && (
-        <div className="px-4 pt-2">
-          <div className="relative inline-block">
-            <img src={imagePreview} alt="Preview" className="h-20 rounded-lg object-cover border border-border/40" />
+        <div className="px-3 md:px-4 pt-2 overflow-x-hidden">
+          <div className="relative inline-block max-w-full">
+            <img src={imagePreview} alt="Preview" className="h-20 max-w-full rounded-lg object-cover border border-border/40" />
             <button
               onClick={() => setImagePreview(null)}
               className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center hover:bg-destructive/80 transition-colors active:scale-95"
@@ -402,14 +400,14 @@ export function AIChat({ language, systemContext, enableMemeGeneration, initialM
         </div>
       )}
 
-      <div className="p-2 md:p-4 border-t border-border/30 safe-bottom">
-        <form onSubmit={(e) => { e.preventDefault(); send(); }} className="flex items-center gap-1 md:gap-2">
+      <div className="sticky bottom-0 border-t border-border/30 bg-background/80 p-2 md:p-4 backdrop-blur safe-bottom">
+        <form onSubmit={(e) => { e.preventDefault(); send(); }} className="flex w-full items-center gap-1.5 md:gap-2">
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
             disabled={isBusy}
-            className="p-2 md:p-3 rounded-lg hover:bg-muted/50 text-muted-foreground hover:text-foreground disabled:opacity-40 transition-all active:scale-95 shrink-0"
+            className="shrink-0 p-2 md:p-3 rounded-lg hover:bg-muted/50 text-muted-foreground hover:text-foreground disabled:opacity-40 transition-all active:scale-95"
             title={language === "hi" ? "छवि अपलोड करें" : language === "kn" ? "ಚಿತ್ರ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ" : "Upload image"}
           >
             <Paperclip className="w-4 h-4" />
@@ -418,7 +416,7 @@ export function AIChat({ language, systemContext, enableMemeGeneration, initialM
             type="button"
             onClick={toggleVoice}
             disabled={isBusy}
-            className={`p-2 md:p-3 rounded-lg transition-all active:scale-95 shrink-0 ${
+            className={`shrink-0 p-2 md:p-3 rounded-lg transition-all active:scale-95 ${
               isListening
                 ? "bg-destructive/20 text-destructive animate-pulse"
                 : "hover:bg-muted/50 text-muted-foreground hover:text-foreground"
@@ -431,13 +429,14 @@ export function AIChat({ language, systemContext, enableMemeGeneration, initialM
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={isListening ? (language === "hi" ? "सुन रहा हूँ..." : language === "kn" ? "ಕೇಳುತ್ತಿದ್ದೇನೆ..." : "Listening...") : imagePreview ? (language === "hi" ? "इस छवि के बारे में पूछें..." : language === "kn" ? "ಈ ಚಿತ್ರದ ಬಗ್ಗೆ ಕೇಳಿ..." : "Ask about this image...") : placeholders[language]}
-            className="flex-1 min-w-0 glass-input px-3 py-2.5 md:py-3 text-base md:text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 transition-shadow rounded-xl"
+            className="glass-input flex-1 min-w-0 rounded-xl px-3 py-2.5 text-[16px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 transition-shadow md:py-3 md:text-sm"
             disabled={isBusy}
+            enterKeyHint="send"
           />
           <button
             type="submit"
             disabled={isBusy || (!input.trim() && !imagePreview)}
-            className="p-2.5 md:p-3 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 transition-all active:scale-95 shrink-0"
+            className="shrink-0 rounded-xl bg-primary p-2.5 text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-40 active:scale-95 md:p-3"
           >
             {isBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : enableMemeGeneration ? <ImagePlus className="w-4 h-4" /> : <Send className="w-4 h-4" />}
           </button>
