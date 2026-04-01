@@ -19,6 +19,8 @@ interface AIChatProps {
   language: "en" | "hi" | "kn";
   systemContext?: string;
   enableMemeGeneration?: boolean;
+  initialMessages?: Msg[];
+  onMessagesChange?: (messages: Msg[]) => void;
 }
 
 type ThinkingAgent = "brain" | "vision" | "multilingual" | "generation" | null;
