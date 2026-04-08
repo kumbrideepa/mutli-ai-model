@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Loader2, Bot, User, Paperclip, X, Mic, MicOff, ImagePlus, Brain, Eye, Globe, Sparkles, Volume2, VolumeX, FileText, Link } from "lucide-react";
+import { Send, Loader2, Bot, User, Paperclip, X, Mic, MicOff, ImagePlus, Volume2, VolumeX, FileText } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
 type MessageContent = string | Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }>;
@@ -36,20 +36,18 @@ const agentLabels: Record<string, Record<string, string>> = {
   youtube: { en: "📺 Analyzing YouTube video...", hi: "📺 YouTube वीडियो विश्लेषण कर रहा है...", kn: "📺 YouTube ವೀಡಿಯೋ ವಿಶ್ಲೇಷಿಸುತ್ತಿದೆ..." },
 };
 
-async function extractPdfText(file: File): Promise<string> {
-  const pdfjsLib = await import("pdfjs-dist");
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs`;
-  const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-  const pages: string[] = [];
-  const maxPages = Math.min(pdf.numPages, 50);
-  for (let i = 1; i <= maxPages; i++) {
-    const page = await pdf.getPage(i);
-    const textContent = await page.getTextContent();
-    const text = textContent.items.map((item: any) => item.str).join(" ");
-    if (text.trim()) pages.push(`[Page ${i}] ${text}`);
-  }
-  return pages.join("\n\n");
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      // Extract base64 part after the data URL prefix
+      const base64 = result.split(",")[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
 export function AIChat({ language, systemContext, enableMemeGeneration, initialMessages, onMessagesChange }: AIChatProps) {
