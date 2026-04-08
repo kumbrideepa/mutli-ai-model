@@ -312,28 +312,54 @@ export function AIChat({ language, systemContext, enableMemeGeneration, initialM
       return;
     }
 
-    // Regular chat path (with optional images/PDFs)
+    // PDF reading path - use dedicated edge function
+    if (hasPdfs && !hasImages) {
+      setIsLoading(true);
+      setThinkingAgent("pdf");
+      // Process first PDF (for multiple, we process sequentially)
+      for (const file of currentPdfFiles) {
+        let assistantSoFar = "";
+        try {
+          const base64 = await fileToBase64(file);
+          const PDF_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pdf-read`;
+          const resp = await fetch(PDF_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
+            body: JSON.stringify({ pdfBase64: base64, fileName: file.name, question: textInput || "Please summarize this PDF.", language }),
+          });
+          if (!resp.ok || !resp.body) {
+            const errData = await resp.json().catch(() => ({}));
+            throw new Error(errData.error || `Error ${resp.status}`);
+          }
+          await streamSSE(resp, (chunk) => {
+            assistantSoFar += chunk;
+            setThinkingAgent(null);
+            setMessages(prev => {
+              const last = prev[prev.length - 1];
+              if (last?.role === "assistant") return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantSoFar } : m);
+              return [...prev, { role: "assistant", content: assistantSoFar }];
+            });
+          });
+        } catch (e: any) {
+          setThinkingAgent(null);
+          setMessages(prev => [...prev, { role: "assistant", content: `⚠️ ${file.name}: ${e.message || "Could not read PDF"}` }]);
+        }
+      }
+      setIsLoading(false);
+      setThinkingAgent(null);
+      return;
+    }
+
+    // Regular chat path (with optional images)
     setIsLoading(true);
-    if (hasPdfs) setThinkingAgent("pdf");
-    else if (hasImages) setThinkingAgent("vision");
+    if (hasImages) setThinkingAgent("vision");
     else if (language !== "en") setThinkingAgent("multilingual");
     else setThinkingAgent("brain");
 
     let assistantSoFar = "";
-
-    // Build API messages, injecting PDF text as context
     const apiMessages = [...allMessages];
     if (systemContext) {
       apiMessages.unshift({ role: "user" as const, content: `Context: ${systemContext}` });
-    }
-    if (pdfTexts.length > 0) {
-      const pdfContext = pdfTexts.join("\n\n");
-      const lastMsg = apiMessages[apiMessages.length - 1];
-      const lastText = typeof lastMsg.content === "string" ? lastMsg.content : getDisplayText(lastMsg.content);
-      apiMessages[apiMessages.length - 1] = {
-        ...lastMsg,
-        content: `The user uploaded ${pdfTexts.length} PDF(s). Here is the extracted text:\n\n${pdfContext}\n\nUser's question: ${lastText || "Please summarize these PDFs."}`,
-      };
     }
 
     try {
