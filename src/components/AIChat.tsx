@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Loader2, Bot, User, Paperclip, X, Mic, MicOff, ImagePlus, Brain, Eye, Globe, Sparkles, Volume2, VolumeX } from "lucide-react";
+import { Send, Loader2, Bot, User, Paperclip, X, Mic, MicOff, ImagePlus, Brain, Eye, Globe, Sparkles, Volume2, VolumeX, FileText, Link } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
 type MessageContent = string | Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }>;
-type Msg = { role: "user" | "assistant"; content: MessageContent; generatedImage?: string };
+type Msg = { role: "user" | "assistant"; content: MessageContent; generatedImage?: string; pdfNames?: string[] };
 
 const getDisplayText = (content: MessageContent): string => {
   if (typeof content === "string") return content;
@@ -15,6 +15,8 @@ const getImages = (content: MessageContent): string[] => {
   return content.filter((p) => p.type === "image_url").map((p) => (p as any).image_url.url);
 };
 
+const YOUTUBE_REGEX = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/i;
+
 interface AIChatProps {
   language: "en" | "hi" | "kn";
   systemContext?: string;
@@ -23,43 +25,62 @@ interface AIChatProps {
   onMessagesChange?: (messages: Msg[]) => void;
 }
 
-type ThinkingAgent = "brain" | "vision" | "multilingual" | "generation" | null;
+type ThinkingAgent = "brain" | "vision" | "multilingual" | "generation" | "pdf" | "youtube" | null;
 
 const agentLabels: Record<string, Record<string, string>> = {
   brain: { en: "🧠 Brain Agent thinking...", hi: "🧠 ब्रेन एजेंट सोच रहा है...", kn: "🧠 ಬ್ರೈನ್ ಏಜೆಂಟ್ ಯೋಚಿಸುತ್ತಿದೆ..." },
   vision: { en: "👁️ Vision Agent analyzing...", hi: "👁️ विज़न एजेंट विश्लेषण कर रहा है...", kn: "👁️ ವಿಷನ್ ಏಜೆಂಟ್ ವಿಶ್ಲೇಷಿಸುತ್ತಿದೆ..." },
   multilingual: { en: "🌐 Multilingual Agent translating...", hi: "🌐 बहुभाषी एजेंट अनुवाद कर रहा है...", kn: "🌐 ಬಹುಭಾಷಾ ಏಜೆಂಟ್ ಅನುವಾದಿಸುತ್ತಿದೆ..." },
   generation: { en: "🎨 Generation Agent creating meme...", hi: "🎨 जनरेशन एजेंट मीम बना रहा है...", kn: "🎨 ಜನರೇಶನ್ ಏಜೆಂಟ್ ಮೀಮ್ ರಚಿಸುತ್ತಿದೆ..." },
+  pdf: { en: "📄 Reading PDF document...", hi: "📄 PDF दस्तावेज़ पढ़ रहा है...", kn: "📄 PDF ಡಾಕ್ಯುಮೆಂಟ್ ಓದುತ್ತಿದೆ..." },
+  youtube: { en: "📺 Analyzing YouTube video...", hi: "📺 YouTube वीडियो विश्लेषण कर रहा है...", kn: "📺 YouTube ವೀಡಿಯೋ ವಿಶ್ಲೇಷಿಸುತ್ತಿದೆ..." },
 };
+
+async function extractPdfText(file: File): Promise<string> {
+  const pdfjsLib = await import("pdfjs-dist");
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs`;
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const pages: string[] = [];
+  const maxPages = Math.min(pdf.numPages, 50);
+  for (let i = 1; i <= maxPages; i++) {
+    const page = await pdf.getPage(i);
+    const textContent = await page.getTextContent();
+    const text = textContent.items.map((item: any) => item.str).join(" ");
+    if (text.trim()) pages.push(`[Page ${i}] ${text}`);
+  }
+  return pages.join("\n\n");
+}
 
 export function AIChat({ language, systemContext, enableMemeGeneration, initialMessages, onMessagesChange }: AIChatProps) {
   const [messages, setMessages] = useState<Msg[]>(initialMessages || []);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [pdfFiles, setPdfFiles] = useState<File[]>([]);
   const [isListening, setIsListening] = useState(false);
   const [thinkingAgent, setThinkingAgent] = useState<ThinkingAgent>(null);
   const [isGeneratingMeme, setIsGeneratingMeme] = useState(false);
+  const [speaking, setSpeaking] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const pdfRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
 
-  // Auto-scroll to bottom whenever messages change or AI is thinking
   useEffect(() => {
     setTimeout(() => {
       scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
     }, 50);
   }, [messages, thinkingAgent]);
 
-  // Notify parent of message changes (skip initial render)
   useEffect(() => {
     if (messages.length > 0) onMessagesChange?.(messages);
   }, [messages]);
 
   const placeholders: Record<string, string> = {
-    en: enableMemeGeneration ? "Describe a meme idea..." : "Type your message...",
-    hi: enableMemeGeneration ? "मीम का विचार लिखें..." : "अपना संदेश लिखें...",
-    kn: enableMemeGeneration ? "ಮೀಮ್ ಐಡಿಯಾ ಬರೆಯಿರಿ..." : "ನಿಮ್ಮ ಸಂದೇಶವನ್ನು ಟೈಪ್ ಮಾಡಿ...",
+    en: enableMemeGeneration ? "Describe a meme idea..." : "Type a message or paste a YouTube link...",
+    hi: enableMemeGeneration ? "मीम का विचार लिखें..." : "संदेश लिखें या YouTube लिंक पेस्ट करें...",
+    kn: enableMemeGeneration ? "ಮೀಮ್ ಐಡಿಯಾ ಬರೆಯಿರಿ..." : "ಸಂದೇಶ ಟೈಪ್ ಮಾಡಿ ಅಥವಾ YouTube ಲಿಂಕ್ ಪೇಸ್ಟ್ ಮಾಡಿ...",
   };
 
   const compressImage = (file: File, maxWidth = 800, quality = 0.6): Promise<string> => {
@@ -85,19 +106,44 @@ export function AIChat({ language, systemContext, enableMemeGeneration, initialM
   };
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) return;
-    if (file.size > 10 * 1024 * 1024) return;
-    try {
-      const compressed = await compressImage(file);
-      setImagePreview(compressed);
-    } catch {
-      const reader = new FileReader();
-      reader.onload = () => setImagePreview(reader.result as string);
-      reader.readAsDataURL(file);
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    const imageFiles = files.filter(f => f.type.startsWith("image/") && f.size <= 10 * 1024 * 1024);
+    const remaining = 20 - imagePreviews.length;
+    const toProcess = imageFiles.slice(0, remaining);
+    
+    const newPreviews: string[] = [];
+    for (const file of toProcess) {
+      try {
+        const compressed = await compressImage(file);
+        newPreviews.push(compressed);
+      } catch {
+        const reader = new FileReader();
+        const dataUrl = await new Promise<string>((resolve) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(file);
+        });
+        newPreviews.push(dataUrl);
+      }
     }
+    setImagePreviews(prev => [...prev, ...newPreviews]);
     e.target.value = "";
+  };
+
+  const handlePdfSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const pdfs = files.filter(f => f.type === "application/pdf" && f.size <= 20 * 1024 * 1024);
+    const remaining = 15 - pdfFiles.length;
+    setPdfFiles(prev => [...prev, ...pdfs.slice(0, remaining)]);
+    e.target.value = "";
+  };
+
+  const removeImage = (index: number) => {
+    setImagePreviews(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const removePdf = (index: number) => {
+    setPdfFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const toggleVoice = useCallback(() => {
@@ -133,142 +179,200 @@ export function AIChat({ language, systemContext, enableMemeGeneration, initialM
       const MEME_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/meme-generate`;
       const resp = await fetch(MEME_URL, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
         body: JSON.stringify({ prompt, language }),
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || "Meme generation failed");
-      
-      setMessages((prev) => [
-        ...prev,
-        { 
-          role: "assistant", 
-          content: data.text || (language === "hi" ? "यहाँ आपका मीम है! 😂" : language === "kn" ? "ಇಲ್ಲಿ ನಿಮ್ಮ ಮೀಮ್! 😂" : "Here's your meme! 😂"),
-          generatedImage: data.imageUrl 
-        },
-      ]);
+      setMessages((prev) => [...prev, {
+        role: "assistant",
+        content: data.text || (language === "hi" ? "यहाँ आपका मीम है! 😂" : language === "kn" ? "ಇಲ್ಲಿ ನಿಮ್ಮ ಮೀಮ್! 😂" : "Here's your meme! 😂"),
+        generatedImage: data.imageUrl,
+      }]);
     } catch (e: any) {
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: `⚠️ ${e.message || "Meme generation failed"}` },
-      ]);
+      setMessages((prev) => [...prev, { role: "assistant", content: `⚠️ ${e.message || "Meme generation failed"}` }]);
     } finally {
       setIsGeneratingMeme(false);
       setThinkingAgent(null);
     }
   };
 
+  const streamSSE = async (resp: Response, onChunk: (text: string) => void) => {
+    const reader = resp.body!.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    let done = false;
+    while (!done) {
+      const { done: d, value } = await reader.read();
+      if (d) break;
+      buf += decoder.decode(value, { stream: true });
+      let ni: number;
+      while ((ni = buf.indexOf("\n")) !== -1) {
+        let line = buf.slice(0, ni);
+        buf = buf.slice(ni + 1);
+        if (line.endsWith("\r")) line = line.slice(0, -1);
+        if (line.startsWith(":") || line.trim() === "") continue;
+        if (!line.startsWith("data: ")) continue;
+        const json = line.slice(6).trim();
+        if (json === "[DONE]") { done = true; break; }
+        try {
+          const p = JSON.parse(json);
+          const c = p.choices?.[0]?.delta?.content;
+          if (c) onChunk(c);
+        } catch {
+          buf = line + "\n" + buf;
+          break;
+        }
+      }
+    }
+  };
+
+  const speakText = (idx: number, text: string) => {
+    if (speaking === idx) {
+      speechSynthesis.cancel();
+      setSpeaking(null);
+      return;
+    }
+    speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = language === "hi" ? "hi-IN" : language === "kn" ? "kn-IN" : "en-US";
+    utter.onend = () => setSpeaking(null);
+    speechSynthesis.speak(utter);
+    setSpeaking(idx);
+  };
+
   const send = async () => {
-    if ((!input.trim() && !imagePreview) || isLoading || isGeneratingMeme) return;
+    if ((!input.trim() && !imagePreviews.length && !pdfFiles.length) || isLoading || isGeneratingMeme) return;
 
+    const textInput = input.trim();
+    const hasImages = imagePreviews.length > 0;
+    const hasPdfs = pdfFiles.length > 0;
+    const youtubeMatch = textInput.match(YOUTUBE_REGEX);
+
+    // Build user message content
     let userContent: MessageContent;
-    const hasImage = !!imagePreview;
+    let pdfTexts: string[] = [];
+    const pdfNames = pdfFiles.map(f => f.name);
 
-    if (imagePreview) {
+    if (hasImages) {
       const parts: Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }> = [];
-      parts.push({ type: "image_url", image_url: { url: imagePreview } });
-      parts.push({ type: "text", text: input.trim() || "What do you see in this image? Describe and analyze it." });
+      for (const img of imagePreviews) {
+        parts.push({ type: "image_url", image_url: { url: img } });
+      }
+      parts.push({ type: "text", text: textInput || `What do you see in ${imagePreviews.length > 1 ? "these images" : "this image"}? Describe and analyze.` });
       userContent = parts;
     } else {
-      userContent = input.trim();
+      userContent = textInput;
     }
 
-    const userMsg: Msg = { role: "user", content: userContent };
+    // Extract PDF text before clearing state
+    if (hasPdfs) {
+      for (const file of pdfFiles) {
+        try {
+          const text = await extractPdfText(file);
+          pdfTexts.push(`--- PDF: ${file.name} ---\n${text}`);
+        } catch {
+          pdfTexts.push(`--- PDF: ${file.name} ---\n[Could not read this PDF]`);
+        }
+      }
+    }
+
+    const userMsg: Msg = { role: "user", content: userContent, pdfNames: pdfNames.length ? pdfNames : undefined };
     const allMessages = [...messages, userMsg];
     setMessages(allMessages);
     setInput("");
-    setImagePreview(null);
+    setImagePreviews([]);
+    setPdfFiles([]);
 
-    // For meme generator, use the image generation endpoint
-    if (enableMemeGeneration && !hasImage) {
+    // Meme generation path
+    if (enableMemeGeneration && !hasImages && !hasPdfs && !youtubeMatch) {
       const prompt = typeof userContent === "string" ? userContent : getDisplayText(userContent);
       await generateMeme(prompt);
       return;
     }
 
-    setIsLoading(true);
-    
-    // Determine which agent is "thinking"
-    if (hasImage) {
-      setThinkingAgent("vision");
-    } else if (language !== "en") {
-      setThinkingAgent("multilingual");
-    } else {
-      setThinkingAgent("brain");
+    // YouTube summary path
+    if (youtubeMatch && !hasImages && !hasPdfs) {
+      setIsLoading(true);
+      setThinkingAgent("youtube");
+      let assistantSoFar = "";
+      try {
+        const YT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/youtube-summary`;
+        const resp = await fetch(YT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
+          body: JSON.stringify({ url: textInput, language }),
+        });
+        if (!resp.ok || !resp.body) {
+          const errData = await resp.json().catch(() => ({}));
+          throw new Error(errData.error || `Error ${resp.status}`);
+        }
+        await streamSSE(resp, (chunk) => {
+          assistantSoFar += chunk;
+          setThinkingAgent(null);
+          setMessages(prev => {
+            const last = prev[prev.length - 1];
+            if (last?.role === "assistant") return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantSoFar } : m);
+            return [...prev, { role: "assistant", content: assistantSoFar }];
+          });
+        });
+      } catch (e: any) {
+        setThinkingAgent(null);
+        setMessages(prev => [...prev, { role: "assistant", content: `⚠️ ${e.message || "Could not summarize video"}` }]);
+      } finally {
+        setIsLoading(false);
+        setThinkingAgent(null);
+      }
+      return;
     }
 
+    // Regular chat path (with optional images/PDFs)
+    setIsLoading(true);
+    if (hasPdfs) setThinkingAgent("pdf");
+    else if (hasImages) setThinkingAgent("vision");
+    else if (language !== "en") setThinkingAgent("multilingual");
+    else setThinkingAgent("brain");
+
     let assistantSoFar = "";
-    const apiMessages = systemContext
-      ? [{ role: "user" as const, content: `Context: ${systemContext}` }, ...allMessages]
-      : allMessages;
+
+    // Build API messages, injecting PDF text as context
+    const apiMessages = [...allMessages];
+    if (systemContext) {
+      apiMessages.unshift({ role: "user" as const, content: `Context: ${systemContext}` });
+    }
+    if (pdfTexts.length > 0) {
+      const pdfContext = pdfTexts.join("\n\n");
+      const lastMsg = apiMessages[apiMessages.length - 1];
+      const lastText = typeof lastMsg.content === "string" ? lastMsg.content : getDisplayText(lastMsg.content);
+      apiMessages[apiMessages.length - 1] = {
+        ...lastMsg,
+        content: `The user uploaded ${pdfTexts.length} PDF(s). Here is the extracted text:\n\n${pdfContext}\n\nUser's question: ${lastText || "Please summarize these PDFs."}`,
+      };
+    }
 
     try {
       const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
       const resp = await fetch(CHAT_URL, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
         body: JSON.stringify({ messages: apiMessages, language }),
       });
-
       if (!resp.ok || !resp.body) {
         const errData = await resp.json().catch(() => ({}));
         throw new Error(errData.error || `Error ${resp.status}`);
       }
-
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let textBuffer = "";
-
-      const upsert = (chunk: string) => {
+      await streamSSE(resp, (chunk) => {
         assistantSoFar += chunk;
-        // Clear thinking once we get first token
         setThinkingAgent(null);
-        setMessages((prev) => {
+        setMessages(prev => {
           const last = prev[prev.length - 1];
-          if (last?.role === "assistant") {
-            return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: assistantSoFar } : m));
-          }
+          if (last?.role === "assistant") return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantSoFar } : m);
           return [...prev, { role: "assistant", content: assistantSoFar }];
         });
-      };
-
-      let streamDone = false;
-      while (!streamDone) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        textBuffer += decoder.decode(value, { stream: true });
-
-        let newlineIndex: number;
-        while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
-          let line = textBuffer.slice(0, newlineIndex);
-          textBuffer = textBuffer.slice(newlineIndex + 1);
-          if (line.endsWith("\r")) line = line.slice(0, -1);
-          if (line.startsWith(":") || line.trim() === "") continue;
-          if (!line.startsWith("data: ")) continue;
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === "[DONE]") { streamDone = true; break; }
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content;
-            if (content) upsert(content);
-          } catch {
-            textBuffer = line + "\n" + textBuffer;
-            break;
-          }
-        }
-      }
+      });
     } catch (e: any) {
       setThinkingAgent(null);
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: `⚠️ ${e.message || "Something went wrong. Please try again."}` },
-      ]);
+      setMessages(prev => [...prev, { role: "assistant", content: `⚠️ ${e.message || "Something went wrong. Please try again."}` }]);
     } finally {
       setIsLoading(false);
       setThinkingAgent(null);
@@ -276,6 +380,7 @@ export function AIChat({ language, systemContext, enableMemeGeneration, initialM
   };
 
   const isBusy = isLoading || isGeneratingMeme;
+  const hasAttachments = imagePreviews.length > 0 || pdfFiles.length > 0;
 
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden">
@@ -290,17 +395,18 @@ export function AIChat({ language, systemContext, enableMemeGeneration, initialM
             </h2>
             <p className="text-muted-foreground text-sm max-w-md mb-4">
               {language === "hi"
-                ? "मुझसे कुछ भी पूछें, तस्वीर भेजें, या माइक बटन दबाकर बोलें!"
+                ? "मुझसे कुछ भी पूछें, तस्वीरें भेजें, PDF अपलोड करें, या YouTube लिंक पेस्ट करें!"
                 : language === "kn"
-                ? "ನನ್ನನ್ನು ಏನಾದರೂ ಕೇಳಿ, ಫೋಟೋ ಕಳುಹಿಸಿ, ಅಥವಾ ಮೈಕ್ ಒತ್ತಿ ಮಾತನಾಡಿ!"
-                : "Ask me anything, send a photo, or tap the mic to speak!"}
+                ? "ನನ್ನನ್ನು ಏನಾದರೂ ಕೇಳಿ, ಫೋಟೋ ಕಳುಹಿಸಿ, PDF ಅಪ್‌ಲೋಡ್ ಮಾಡಿ, ಅಥವಾ YouTube ಲಿಂಕ್ ಪೇಸ್ಟ್ ಮಾಡಿ!"
+                : "Ask anything, upload images/PDFs, or paste a YouTube link!"}
             </p>
             <div className="flex flex-wrap gap-2 justify-center max-w-sm">
               {[
-                { icon: Brain, label: language === "hi" ? "🧠 ब्रेन" : language === "kn" ? "🧠 ಬ್ರೈನ್" : "🧠 Brain" },
-                { icon: Eye, label: language === "hi" ? "👁️ विज़न" : language === "kn" ? "👁️ ವಿಷನ್" : "👁️ Vision" },
-                { icon: Globe, label: language === "hi" ? "🌐 बहुभाषी" : language === "kn" ? "🌐 ಬಹುಭಾಷಾ" : "🌐 Multilingual" },
-                ...(enableMemeGeneration ? [{ icon: ImagePlus, label: language === "hi" ? "🎨 जनरेशन" : language === "kn" ? "🎨 ಜನರೇಶನ್" : "🎨 Generation" }] : []),
+                { label: language === "hi" ? "🧠 ब्रेन" : language === "kn" ? "🧠 ಬ್ರೈನ್" : "🧠 Brain" },
+                { label: language === "hi" ? "👁️ विज़न" : language === "kn" ? "👁️ ವಿಷನ್" : "👁️ Vision" },
+                { label: language === "hi" ? "📄 PDF" : language === "kn" ? "📄 PDF" : "📄 PDF" },
+                { label: language === "hi" ? "📺 YouTube" : language === "kn" ? "📺 YouTube" : "📺 YouTube" },
+                ...(enableMemeGeneration ? [{ label: language === "hi" ? "🎨 मीम" : language === "kn" ? "🎨 ಮೀಮ್" : "🎨 Meme" }] : []),
               ].map((agent) => (
                 <span key={agent.label} className="text-xs px-3 py-1.5 rounded-full bg-primary/10 text-primary font-medium border border-primary/20">
                   {agent.label}
@@ -324,9 +430,18 @@ export function AIChat({ language, systemContext, enableMemeGeneration, initialM
                 msg.role === "user" ? "bg-primary text-primary-foreground rounded-br-md" : "glass-card rounded-bl-md"
               }`}>
                 {images.length > 0 && (
-                  <div className="p-2 pb-0">
+                  <div className="p-2 pb-0 flex flex-wrap gap-1">
                     {images.map((src, j) => (
-                      <img key={j} src={src} alt="Uploaded" className="max-w-full rounded-lg max-h-48 w-auto object-contain" />
+                      <img key={j} src={src} alt="Uploaded" className="rounded-lg max-h-32 w-auto object-contain" />
+                    ))}
+                  </div>
+                )}
+                {msg.pdfNames && msg.pdfNames.length > 0 && (
+                  <div className="p-2 pb-0 flex flex-wrap gap-1">
+                    {msg.pdfNames.map((name, j) => (
+                      <span key={j} className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-primary/20">
+                        <FileText className="w-3 h-3" /> {name}
+                      </span>
                     ))}
                   </div>
                 )}
@@ -344,16 +459,10 @@ export function AIChat({ language, systemContext, enableMemeGeneration, initialM
                 </div>
                 {msg.role === "assistant" && text && (
                   <button
-                    onClick={() => {
-                      if (speechSynthesis.speaking) { speechSynthesis.cancel(); return; }
-                      const utter = new SpeechSynthesisUtterance(text);
-                      utter.lang = language === "hi" ? "hi-IN" : language === "kn" ? "kn-IN" : "en-US";
-                      speechSynthesis.speak(utter);
-                    }}
+                    onClick={() => speakText(i, text)}
                     className="px-4 pb-2 text-xs text-muted-foreground hover:text-primary transition-colors"
-                    title={language === "hi" ? "सुनें" : language === "kn" ? "ಕೇಳಿ" : "Listen"}
                   >
-                    <Volume2 className="w-3.5 h-3.5 inline mr-1" />
+                    {speaking === i ? <VolumeX className="w-3.5 h-3.5 inline mr-1" /> : <Volume2 className="w-3.5 h-3.5 inline mr-1" />}
                     {language === "hi" ? "सुनें" : language === "kn" ? "ಕೇಳಿ" : "Listen"}
                   </button>
                 )}
@@ -386,58 +495,70 @@ export function AIChat({ language, systemContext, enableMemeGeneration, initialM
         )}
       </div>
 
-      {imagePreview && (
-        <div className="px-3 md:px-4 pt-2 overflow-x-hidden">
-          <div className="relative inline-block max-w-full">
-            <img src={imagePreview} alt="Preview" className="h-20 max-w-full rounded-lg object-cover border border-border/40" />
-            <button
-              onClick={() => setImagePreview(null)}
-              className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center hover:bg-destructive/80 transition-colors active:scale-95"
-            >
-              <X className="w-3 h-3" />
-            </button>
+      {/* Attachment previews */}
+      {hasAttachments && (
+        <div className="px-3 md:px-4 pt-2 overflow-x-auto">
+          <div className="flex gap-2 flex-wrap">
+            {imagePreviews.map((src, i) => (
+              <div key={`img-${i}`} className="relative">
+                <img src={src} alt="Preview" className="h-16 w-16 rounded-lg object-cover border border-border/40" />
+                <button onClick={() => removeImage(i)} className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-xs">
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+            {pdfFiles.map((file, i) => (
+              <div key={`pdf-${i}`} className="relative flex items-center gap-1 px-2 py-1 rounded-lg bg-muted/50 border border-border/40 text-xs max-w-[120px]">
+                <FileText className="w-3.5 h-3.5 shrink-0 text-primary" />
+                <span className="truncate">{file.name}</span>
+                <button onClick={() => removePdf(i)} className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center">
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
           </div>
+          <p className="text-[10px] text-muted-foreground mt-1">
+            {imagePreviews.length > 0 && `📷 ${imagePreviews.length}/20 images`}
+            {imagePreviews.length > 0 && pdfFiles.length > 0 && " · "}
+            {pdfFiles.length > 0 && `📄 ${pdfFiles.length}/15 PDFs`}
+          </p>
         </div>
       )}
 
       <div className="sticky bottom-0 border-t border-border/30 bg-background/80 p-2 md:p-4 backdrop-blur safe-bottom">
-        <form onSubmit={(e) => { e.preventDefault(); send(); }} className="flex w-full items-center gap-1.5 md:gap-2">
-          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            disabled={isBusy}
-            className="shrink-0 p-2 md:p-3 rounded-lg hover:bg-muted/50 text-muted-foreground hover:text-foreground disabled:opacity-40 transition-all active:scale-95"
-            title={language === "hi" ? "छवि अपलोड करें" : language === "kn" ? "ಚಿತ್ರ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ" : "Upload image"}
-          >
+        <form onSubmit={(e) => { e.preventDefault(); send(); }} className="flex w-full items-center gap-1 md:gap-2">
+          <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImageSelect} />
+          <input ref={pdfRef} type="file" accept=".pdf" multiple className="hidden" onChange={handlePdfSelect} />
+          
+          <button type="button" onClick={() => fileRef.current?.click()} disabled={isBusy || imagePreviews.length >= 20}
+            className="shrink-0 p-2 rounded-lg hover:bg-muted/50 text-muted-foreground hover:text-foreground disabled:opacity-40 transition-all active:scale-95"
+            title={language === "hi" ? "छवि अपलोड (20 तक)" : language === "kn" ? "ಚಿತ್ರ ಅಪ್‌ಲೋಡ್ (20 ವರೆಗೆ)" : "Upload images (up to 20)"}>
             <Paperclip className="w-4 h-4" />
           </button>
-          <button
-            type="button"
-            onClick={toggleVoice}
-            disabled={isBusy}
-            className={`shrink-0 p-2 md:p-3 rounded-lg transition-all active:scale-95 ${
-              isListening
-                ? "bg-destructive/20 text-destructive animate-pulse"
-                : "hover:bg-muted/50 text-muted-foreground hover:text-foreground"
-            } disabled:opacity-40`}
-            title={language === "hi" ? "बोलकर टाइप करें" : language === "kn" ? "ಮಾತನಾಡಿ ಟೈಪ್ ಮಾಡಿ" : "Voice input"}
-          >
+          
+          <button type="button" onClick={() => pdfRef.current?.click()} disabled={isBusy || pdfFiles.length >= 15}
+            className="shrink-0 p-2 rounded-lg hover:bg-muted/50 text-muted-foreground hover:text-foreground disabled:opacity-40 transition-all active:scale-95"
+            title={language === "hi" ? "PDF अपलोड (15 तक)" : language === "kn" ? "PDF ಅಪ್‌ಲೋಡ್ (15 ವರೆಗೆ)" : "Upload PDFs (up to 15)"}>
+            <FileText className="w-4 h-4" />
+          </button>
+
+          <button type="button" onClick={toggleVoice} disabled={isBusy}
+            className={`shrink-0 p-2 rounded-lg transition-all active:scale-95 ${isListening ? "bg-destructive/20 text-destructive animate-pulse" : "hover:bg-muted/50 text-muted-foreground hover:text-foreground"} disabled:opacity-40`}
+            title={language === "hi" ? "बोलकर टाइप करें" : language === "kn" ? "ಮಾತನಾಡಿ ಟೈಪ್ ಮಾಡಿ" : "Voice input"}>
             {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
           </button>
+
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={isListening ? (language === "hi" ? "सुन रहा हूँ..." : language === "kn" ? "ಕೇಳುತ್ತಿದ್ದೇನೆ..." : "Listening...") : imagePreview ? (language === "hi" ? "इस छवि के बारे में पूछें..." : language === "kn" ? "ಈ ಚಿತ್ರದ ಬಗ್ಗೆ ಕೇಳಿ..." : "Ask about this image...") : placeholders[language]}
+            placeholder={isListening ? (language === "hi" ? "सुन रहा हूँ..." : language === "kn" ? "ಕೇಳುತ್ತಿದ್ದೇನೆ..." : "Listening...") : hasAttachments ? (language === "hi" ? "फाइलों के बारे में पूछें..." : language === "kn" ? "ಫೈಲ್‌ಗಳ ಬಗ್ಗೆ ಕೇಳಿ..." : "Ask about these files...") : placeholders[language]}
             className="glass-input flex-1 min-w-0 rounded-xl px-3 py-2.5 text-[16px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 transition-shadow md:py-3 md:text-sm"
             disabled={isBusy}
             enterKeyHint="send"
           />
-          <button
-            type="submit"
-            disabled={isBusy || (!input.trim() && !imagePreview)}
-            className="shrink-0 rounded-xl bg-primary p-2.5 text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-40 active:scale-95 md:p-3"
-          >
+
+          <button type="submit" disabled={isBusy || (!input.trim() && !hasAttachments)}
+            className="shrink-0 rounded-xl bg-primary p-2.5 text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-40 active:scale-95 md:p-3">
             {isBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : enableMemeGeneration ? <ImagePlus className="w-4 h-4" /> : <Send className="w-4 h-4" />}
           </button>
         </form>
