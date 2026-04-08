@@ -249,8 +249,8 @@ export function AIChat({ language, systemContext, enableMemeGeneration, initialM
 
     // Build user message content
     let userContent: MessageContent;
-    let pdfTexts: string[] = [];
     const pdfNames = pdfFiles.map(f => f.name);
+    const currentPdfFiles = [...pdfFiles]; // capture before clearing
 
     if (hasImages) {
       const parts: Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }> = [];
@@ -261,18 +261,6 @@ export function AIChat({ language, systemContext, enableMemeGeneration, initialM
       userContent = parts;
     } else {
       userContent = textInput;
-    }
-
-    // Extract PDF text before clearing state
-    if (hasPdfs) {
-      for (const file of pdfFiles) {
-        try {
-          const text = await extractPdfText(file);
-          pdfTexts.push(`--- PDF: ${file.name} ---\n${text}`);
-        } catch {
-          pdfTexts.push(`--- PDF: ${file.name} ---\n[Could not read this PDF]`);
-        }
-      }
     }
 
     const userMsg: Msg = { role: "user", content: userContent, pdfNames: pdfNames.length ? pdfNames : undefined };
