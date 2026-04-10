@@ -88,6 +88,7 @@ export function AIChat({ language, systemContext, enableMemeGeneration, initialM
   const fileRef = useRef<HTMLInputElement>(null);
   const pdfRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
+  const sendLockRef = useRef(false);
 
   useEffect(() => {
     setTimeout(() => {
@@ -264,7 +265,8 @@ export function AIChat({ language, systemContext, enableMemeGeneration, initialM
   };
 
   const send = async () => {
-    if ((!input.trim() && !imagePreviews.length && !pdfFiles.length) || isLoading || isGeneratingMeme) return;
+    if ((!input.trim() && !imagePreviews.length && !pdfFiles.length) || isLoading || isGeneratingMeme || sendLockRef.current) return;
+    sendLockRef.current = true;
 
     const textInput = input.trim();
     const hasImages = imagePreviews.length > 0;
@@ -296,8 +298,12 @@ export function AIChat({ language, systemContext, enableMemeGeneration, initialM
 
     // Meme generation path
     if (enableMemeGeneration && !hasImages && !hasPdfs && !youtubeMatch) {
-      const prompt = typeof userContent === "string" ? userContent : getDisplayText(userContent);
-      await generateMeme(prompt);
+      try {
+        const prompt = typeof userContent === "string" ? userContent : getDisplayText(userContent);
+        await generateMeme(prompt);
+      } finally {
+        sendLockRef.current = false;
+      }
       return;
     }
 
@@ -332,6 +338,7 @@ export function AIChat({ language, systemContext, enableMemeGeneration, initialM
       } finally {
         setIsLoading(false);
         setThinkingAgent(null);
+        sendLockRef.current = false;
       }
       return;
     }
@@ -398,6 +405,7 @@ export function AIChat({ language, systemContext, enableMemeGeneration, initialM
       }
       setIsLoading(false);
       setThinkingAgent(null);
+      sendLockRef.current = false;
       return;
     }
 
@@ -439,6 +447,7 @@ export function AIChat({ language, systemContext, enableMemeGeneration, initialM
     } finally {
       setIsLoading(false);
       setThinkingAgent(null);
+      sendLockRef.current = false;
     }
   };
 
