@@ -88,6 +88,7 @@ export function AIChat({ language, systemContext, enableMemeGeneration, initialM
   const fileRef = useRef<HTMLInputElement>(null);
   const pdfRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
+  const sendLockRef = useRef(false);
 
   useEffect(() => {
     setTimeout(() => {
