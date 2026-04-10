@@ -298,8 +298,12 @@ export function AIChat({ language, systemContext, enableMemeGeneration, initialM
 
     // Meme generation path
     if (enableMemeGeneration && !hasImages && !hasPdfs && !youtubeMatch) {
-      const prompt = typeof userContent === "string" ? userContent : getDisplayText(userContent);
-      await generateMeme(prompt);
+      try {
+        const prompt = typeof userContent === "string" ? userContent : getDisplayText(userContent);
+        await generateMeme(prompt);
+      } finally {
+        sendLockRef.current = false;
+      }
       return;
     }
 
