@@ -405,6 +405,7 @@ export function AIChat({ language, systemContext, enableMemeGeneration, initialM
       }
       setIsLoading(false);
       setThinkingAgent(null);
+      sendLockRef.current = false;
       return;
     }
 
