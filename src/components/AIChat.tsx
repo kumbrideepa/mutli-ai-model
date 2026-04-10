@@ -1,6 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Send, Loader2, Bot, User, Paperclip, X, Mic, MicOff, ImagePlus, Volume2, VolumeX, FileText } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import * as pdfjsLib from "pdfjs-dist";
+
+// Set worker source
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs`;
 
 type MessageContent = string | Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }>;
 type Msg = { role: "user" | "assistant"; content: MessageContent; generatedImage?: string; pdfNames?: string[] };
@@ -41,13 +45,33 @@ function fileToBase64(file: File): Promise<string> {
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result as string;
-      // Extract base64 part after the data URL prefix
       const base64 = result.split(",")[1];
       resolve(base64);
     };
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+}
+
+async function pdfToImages(file: File): Promise<string[]> {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const images: string[] = [];
+  const maxPages = Math.min(pdf.numPages, 10); // limit to 10 pages
+  
+  for (let i = 1; i <= maxPages; i++) {
+    const page = await pdf.getPage(i);
+    const scale = 2; // good quality
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement("canvas");
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    const ctx = canvas.getContext("2d")!;
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    images.push(canvas.toDataURL("image/jpeg", 0.85));
+    canvas.remove();
+  }
+  return images;
 }
 
 export function AIChat({ language, systemContext, enableMemeGeneration, initialMessages, onMessagesChange }: AIChatProps) {
