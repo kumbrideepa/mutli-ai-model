@@ -265,7 +265,8 @@ export function AIChat({ language, systemContext, enableMemeGeneration, initialM
   };
 
   const send = async () => {
-    if ((!input.trim() && !imagePreviews.length && !pdfFiles.length) || isLoading || isGeneratingMeme) return;
+    if ((!input.trim() && !imagePreviews.length && !pdfFiles.length) || isLoading || isGeneratingMeme || sendLockRef.current) return;
+    sendLockRef.current = true;
 
     const textInput = input.trim();
     const hasImages = imagePreviews.length > 0;
