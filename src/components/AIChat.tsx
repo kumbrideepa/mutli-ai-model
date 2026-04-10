@@ -336,38 +336,65 @@ export function AIChat({ language, systemContext, enableMemeGeneration, initialM
       return;
     }
 
-    // PDF reading path - use dedicated edge function
+    // PDF reading path - convert PDF pages to images, then use vision via chat
     if (hasPdfs && !hasImages) {
       setIsLoading(true);
       setThinkingAgent("pdf");
-      // Process first PDF (for multiple, we process sequentially)
-      for (const file of currentPdfFiles) {
-        let assistantSoFar = "";
-        try {
-          const base64 = await fileToBase64(file);
-          const PDF_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pdf-read`;
-          const resp = await fetch(PDF_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
-            body: JSON.stringify({ pdfBase64: base64, fileName: file.name, question: textInput || "Please summarize this PDF.", language }),
-          });
-          if (!resp.ok || !resp.body) {
-            const errData = await resp.json().catch(() => ({}));
-            throw new Error(errData.error || `Error ${resp.status}`);
+      
+      try {
+        // Convert all PDF pages to images
+        const allPageImages: string[] = [];
+        for (const file of currentPdfFiles) {
+          try {
+            const pageImages = await pdfToImages(file);
+            allPageImages.push(...pageImages);
+          } catch (e: any) {
+            console.error(`Failed to render ${file.name}:`, e);
+            setMessages(prev => [...prev, { role: "assistant", content: `⚠️ Could not render ${file.name}: ${e.message}` }]);
           }
-          await streamSSE(resp, (chunk) => {
-            assistantSoFar += chunk;
-            setThinkingAgent(null);
-            setMessages(prev => {
-              const last = prev[prev.length - 1];
-              if (last?.role === "assistant") return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantSoFar } : m);
-              return [...prev, { role: "assistant", content: assistantSoFar }];
-            });
-          });
-        } catch (e: any) {
-          setThinkingAgent(null);
-          setMessages(prev => [...prev, { role: "assistant", content: `⚠️ ${file.name}: ${e.message || "Could not read PDF"}` }]);
         }
+
+        if (allPageImages.length === 0) {
+          throw new Error("Could not render any PDF pages");
+        }
+
+        // Build vision message with PDF page images
+        const parts: Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }> = [];
+        for (const img of allPageImages) {
+          parts.push({ type: "image_url", image_url: { url: img } });
+        }
+        const pdfQuestion = textInput || "Please read and summarize this PDF document.";
+        parts.push({ type: "text", text: `These are pages from PDF file(s): ${pdfNames.join(", ")}. ${pdfQuestion}` });
+
+        // Send through regular chat endpoint with vision
+        const visionMessages = [...messages, { role: "user" as const, content: parts }];
+        if (systemContext) {
+          visionMessages.unshift({ role: "user" as const, content: `Context: ${systemContext}` } as Msg);
+        }
+
+        const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
+        const resp = await fetch(CHAT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
+          body: JSON.stringify({ messages: visionMessages, language }),
+        });
+        if (!resp.ok || !resp.body) {
+          const errData = await resp.json().catch(() => ({}));
+          throw new Error(errData.error || `Error ${resp.status}`);
+        }
+        let assistantSoFar = "";
+        await streamSSE(resp, (chunk) => {
+          assistantSoFar += chunk;
+          setThinkingAgent(null);
+          setMessages(prev => {
+            const last = prev[prev.length - 1];
+            if (last?.role === "assistant") return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantSoFar } : m);
+            return [...prev, { role: "assistant", content: assistantSoFar }];
+          });
+        });
+      } catch (e: any) {
+        setThinkingAgent(null);
+        setMessages(prev => [...prev, { role: "assistant", content: `⚠️ ${e.message || "Could not read PDF"}` }]);
       }
       setIsLoading(false);
       setThinkingAgent(null);
