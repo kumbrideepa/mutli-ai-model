@@ -6,6 +6,26 @@ type Msg = { role: "user" | "assistant"; content: string };
 
 const YOUTUBE_REGEX = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/i;
 
+type ParsedYouTubeInput = {
+  videoId: string;
+  url: string;
+  question: string;
+};
+
+const parseYouTubeInput = (value: string): ParsedYouTubeInput | null => {
+  const match = value.match(YOUTUBE_REGEX);
+  if (!match) return null;
+
+  const videoId = match[1];
+  const matchedUrl = match[0];
+
+  return {
+    videoId,
+    url: `https://www.youtube.com/watch?v=${videoId}`,
+    question: value.replace(matchedUrl, "").trim(),
+  };
+};
+
 const t = {
   title: { en: "YouTube Intelligence", hi: "YouTube इंटेलिजेंस", kn: "YouTube ಇಂಟೆಲಿಜೆನ್ಸ್" },
   desc: { en: "Paste a YouTube link to get AI summary & ask questions", hi: "YouTube लिंक पेस्ट करें और AI से पूछें", kn: "YouTube ಲಿಂಕ್ ಪೇಸ್ಟ್ ಮಾಡಿ ಮತ್ತು AI ಗೆ ಕೇಳಿ" },
@@ -62,11 +82,13 @@ export default function YouTubeIntelPage({ language }: Props) {
   };
 
   const analyzeVideo = async () => {
-    const match = urlInput.match(YOUTUBE_REGEX);
-    if (!match) return;
+    const parsedInput = parseYouTubeInput(urlInput);
+    if (!parsedInput) return;
 
-    setVideoUrl(urlInput.trim());
-    setVideoId(match[1]);
+    const { url, videoId: parsedVideoId, question } = parsedInput;
+
+    setVideoUrl(url);
+    setVideoId(parsedVideoId);
     setMessages([]);
     setIsLoading(true);
 
@@ -78,7 +100,7 @@ export default function YouTubeIntelPage({ language }: Props) {
       const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/youtube-summary`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
-        body: JSON.stringify({ url: urlInput.trim(), language }),
+        body: JSON.stringify({ url, language, question: question || undefined }),
       });
       if (!resp.ok || !resp.body) {
         const err = await resp.json().catch(() => ({}));
@@ -158,7 +180,7 @@ export default function YouTubeIntelPage({ language }: Props) {
     setUrlInput("");
   };
 
-  const isValidUrl = YOUTUBE_REGEX.test(urlInput);
+  const isValidUrl = Boolean(parseYouTubeInput(urlInput));
 
   // URL input screen
   if (!videoUrl) {

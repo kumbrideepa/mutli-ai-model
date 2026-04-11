@@ -17,46 +17,71 @@ function extractVideoId(url: string): string | null {
   return null;
 }
 
+function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"');
+}
+
 async function fetchVideoInfo(videoId: string) {
-  // Fetch the YouTube page to get title and description
-  const resp = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+  const canonicalUrl = `https://www.youtube.com/watch?v=${videoId}`;
+  let title = "Unknown Video";
+  let channelName = "";
+
+  try {
+    const oembedResp = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(canonicalUrl)}&format=json`);
+    if (oembedResp.ok) {
+      const oembed = await oembedResp.json();
+      title = oembed.title || title;
+      channelName = oembed.author_name || channelName;
+    }
+  } catch (e) {
+    console.log("Could not fetch oEmbed metadata:", e);
+  }
+
+  const resp = await fetch(canonicalUrl, {
     headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
   });
   const html = await resp.text();
 
-  let title = "Unknown Video";
   let description = "";
-  let channelName = "";
 
-  // Extract title
-  const titleMatch = html.match(/<title>(.*?)<\/title>/);
-  if (titleMatch) title = titleMatch[1].replace(" - YouTube", "").trim();
+  if (title === "Unknown Video") {
+    const titleMatch = html.match(/<title>(.*?)<\/title>/);
+    if (titleMatch) title = decodeHtmlEntities(titleMatch[1].replace(" - YouTube", "").trim());
+  }
 
-  // Extract description from meta
-  const descMatch = html.match(/<meta name="description" content="(.*?)"/);
-  if (descMatch) description = descMatch[1];
+  const shortDescMatch = html.match(/"shortDescription":"(.*?)"/);
+  if (shortDescMatch) {
+    description = decodeHtmlEntities(shortDescMatch[1].replace(/\\n/g, " ").replace(/\\"/g, '"'));
+  } else {
+    const descMatch = html.match(/<meta name="description" content="(.*?)"/);
+    if (descMatch) description = decodeHtmlEntities(descMatch[1]);
+  }
 
-  // Extract channel
-  const channelMatch = html.match(/"ownerChannelName":"(.*?)"/);
-  if (channelMatch) channelName = channelMatch[1];
+  if (!channelName) {
+    const channelMatch = html.match(/"ownerChannelName":"(.*?)"/);
+    if (channelMatch) channelName = decodeHtmlEntities(channelMatch[1]);
+  }
 
-  // Try to get captions/transcript
   let transcript = "";
   try {
-    const captionMatch = html.match(/"captionTracks":\[(.*?)\]/);
+    const captionMatch = html.match(/"captionTracks":(\[.*?\])/s);
     if (captionMatch) {
-      const captionData = JSON.parse(`[${captionMatch[1]}]`);
+      const captionData = JSON.parse(captionMatch[1].replace(/\\u0026/g, "&"));
       const enCaptions = captionData.find((c: any) => c.languageCode === "en") || captionData[0];
       if (enCaptions?.baseUrl) {
         const capResp = await fetch(enCaptions.baseUrl);
         const capXml = await capResp.text();
-        // Extract text from XML captions
         const textMatches = capXml.matchAll(/<text[^>]*>(.*?)<\/text>/g);
         const parts: string[] = [];
         for (const m of textMatches) {
-          parts.push(m[1].replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#39;/g, "'").replace(/&quot;/g, '"'));
+          parts.push(decodeHtmlEntities(m[1]));
         }
-        transcript = parts.join(" ").slice(0, 8000); // Limit transcript size
+        transcript = parts.join(" ").slice(0, 8000);
       }
     }
   } catch (e) {
@@ -70,7 +95,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { url, language } = await req.json();
+    const { url, language, question } = await req.json();
     const videoId = extractVideoId(url);
     if (!videoId) {
       return new Response(JSON.stringify({ error: "Invalid YouTube URL" }), {
@@ -89,6 +114,10 @@ serve(async (req) => {
       ? "Respond ENTIRELY in Kannada using Kannada script."
       : "Respond in English.";
 
+    const questionInstruction = typeof question === "string" && question.trim()
+      ? `\n\nThe user also asked this in the first message: ${question.trim()}\nAfter the summary, add a separate **Answer to your question** section that directly answers it based on the video information. If the transcript is unavailable, clearly say your answer is based on the title/description only.`
+      : "";
+
     const prompt = info.transcript
       ? `Summarize this YouTube video based on its transcript.\n\nTitle: ${info.title}\nChannel: ${info.channelName}\n\nTranscript:\n${info.transcript}`
       : `Summarize this YouTube video based on the available info.\n\nTitle: ${info.title}\nChannel: ${info.channelName}\nDescription: ${info.description}\n\nNote: No transcript was available, so provide what you can based on the title and description.`;
@@ -102,8 +131,8 @@ serve(async (req) => {
       body: JSON.stringify({
         model: "google/gemini-3-flash-preview",
         messages: [
-          { role: "system", content: `You summarize YouTube videos in a simple, easy-to-understand way. ${langInstruction}\n\nFormat your response like:\n📺 **Video Title**\n👤 **Channel**\n\n📝 **Summary:**\n(Clear, bullet-point summary)\n\n🔑 **Key Points:**\n(Main takeaways)` },
-          { role: "user", content: prompt },
+          { role: "system", content: `You summarize YouTube videos in a simple, easy-to-understand way. ${langInstruction}\n\nOnly use the provided video information. If any details are missing, say that clearly instead of guessing.\n\nFormat your response like:\n📺 **Video Title**\n👤 **Channel**\n\n📝 **Summary:**\n(Clear, bullet-point summary)${typeof question === "string" && question.trim() ? "\n\n❓ **Answer to your question:**\n(Direct answer)" : ""}\n\n🔑 **Key Points:**\n(Main takeaways)` },
+          { role: "user", content: `${prompt}${questionInstruction}` },
         ],
         stream: true,
       }),
