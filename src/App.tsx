@@ -12,6 +12,8 @@ import MemeGeneratorPage from "@/pages/MemeGeneratorPage";
 import RecipeGeniePage from "@/pages/RecipeGeniePage";
 import GroupChatPage from "@/pages/GroupChatPage";
 import StudyModePage from "@/pages/StudyModePage";
+import YouTubeIntelPage from "@/pages/YouTubeIntelPage";
+import PDFKnowledgePage from "@/pages/PDFKnowledgePage";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +40,8 @@ const App = () => {
                 <Route path="/recipe-genie" element={<RecipeGeniePage language={language} />} />
                 <Route path="/group-chat" element={<GroupChatPage language={language} userId="guest" />} />
                 <Route path="/study-mode" element={<StudyModePage language={language} />} />
+                <Route path="/youtube-intel" element={<YouTubeIntelPage language={language} />} />
+                <Route path="/pdf-knowledge" element={<PDFKnowledgePage language={language} />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </main>
