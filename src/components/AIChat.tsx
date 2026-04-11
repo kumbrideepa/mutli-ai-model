@@ -21,6 +21,27 @@ const getImages = (content: MessageContent): string[] => {
 
 const YOUTUBE_REGEX = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/i;
 
+type ParsedYouTubeInput = {
+  videoId: string;
+  url: string;
+  question: string;
+};
+
+const parseYouTubeInput = (value: string): ParsedYouTubeInput | null => {
+  const match = value.match(YOUTUBE_REGEX);
+  if (!match) return null;
+
+  const videoId = match[1];
+  const matchedUrl = match[0];
+  const question = value.replace(matchedUrl, "").trim();
+
+  return {
+    videoId,
+    url: `https://www.youtube.com/watch?v=${videoId}`,
+    question,
+  };
+};
+
 interface AIChatProps {
   language: "en" | "hi" | "kn";
   systemContext?: string;
@@ -271,7 +292,7 @@ export function AIChat({ language, systemContext, enableMemeGeneration, initialM
     const textInput = input.trim();
     const hasImages = imagePreviews.length > 0;
     const hasPdfs = pdfFiles.length > 0;
-    const youtubeMatch = textInput.match(YOUTUBE_REGEX);
+    const youtubeRequest = !hasImages && !hasPdfs ? parseYouTubeInput(textInput) : null;
 
     // Build user message content
     let userContent: MessageContent;
@@ -297,7 +318,7 @@ export function AIChat({ language, systemContext, enableMemeGeneration, initialM
     setPdfFiles([]);
 
     // Meme generation path
-    if (enableMemeGeneration && !hasImages && !hasPdfs && !youtubeMatch) {
+    if (enableMemeGeneration && !hasImages && !hasPdfs && !youtubeRequest) {
       try {
         const prompt = typeof userContent === "string" ? userContent : getDisplayText(userContent);
         await generateMeme(prompt);
@@ -308,7 +329,7 @@ export function AIChat({ language, systemContext, enableMemeGeneration, initialM
     }
 
     // YouTube summary path
-    if (youtubeMatch && !hasImages && !hasPdfs) {
+    if (youtubeRequest && !hasImages && !hasPdfs) {
       setIsLoading(true);
       setThinkingAgent("youtube");
       let assistantSoFar = "";
@@ -317,7 +338,11 @@ export function AIChat({ language, systemContext, enableMemeGeneration, initialM
         const resp = await fetch(YT_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
-          body: JSON.stringify({ url: textInput, language }),
+          body: JSON.stringify({
+            url: youtubeRequest.url,
+            language,
+            question: youtubeRequest.question || undefined,
+          }),
         });
         if (!resp.ok || !resp.body) {
           const errData = await resp.json().catch(() => ({}));
